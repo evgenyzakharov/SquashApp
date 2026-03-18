@@ -30,7 +30,7 @@ export function Dashboard({ players, matches, snapshots }: Props) {
   return (
     <div>
       <h2 className="section-title">Рейтинг игроков</h2>
-      <div style={{ overflowX: 'auto' }}>
+      <div className="table-wrap">
         <table>
           <thead>
             <tr>

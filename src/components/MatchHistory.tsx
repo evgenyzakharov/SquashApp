@@ -58,6 +58,7 @@ export function MatchHistory({ players, matches }: Props) {
         )}
       </div>
 
+      <div className="table-wrap">
       <table>
         <thead>
           <tr>
@@ -93,6 +94,7 @@ export function MatchHistory({ players, matches }: Props) {
           })}
         </tbody>
       </table>
+      </div>
 
       {filtered.length === 0 && (
         <p style={{ textAlign: 'center', padding: 20, color: '#6b7280' }}>
