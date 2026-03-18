@@ -54,8 +54,11 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded }: Props) {
 
     const matchId = `${date}-${String(matches.length + 1).padStart(3, '0')}`;
 
+    const maxOrder = matches.reduce((max, m) => Math.max(max, m.orderNumber ?? 0), 0);
+
     const match: Match = {
       id: matchId,
+      orderNumber: maxOrder + 1,
       date,
       player1Id: player1,
       player2Id: player2,
