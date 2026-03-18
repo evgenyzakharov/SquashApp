@@ -69,7 +69,7 @@ body {
   transform: translate(-50%, -50%);
   width: 400px;
   height: 400px;
-  background: url('/logo.png') center/contain no-repeat;
+  background: url('./assets/logo.png') center/contain no-repeat;
   opacity: 0.12;
   pointer-events: none;
   z-index: 0;
