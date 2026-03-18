@@ -23,7 +23,7 @@ export async function fetchMatches(): Promise<Match[]> {
   const { data, error } = await supabase
     .from('matches')
     .select('*')
-    .order('date', { ascending: true });
+    .order('order_number', { ascending: true });
   if (error) throw error;
   return (data ?? []).map(mapMatchRow);
 }
@@ -31,6 +31,7 @@ export async function fetchMatches(): Promise<Match[]> {
 export async function addMatch(match: Match): Promise<void> {
   const { error } = await supabase.from('matches').insert({
     id: match.id,
+    order_number: match.orderNumber,
     date: match.date,
     player1_id: match.player1Id,
     player2_id: match.player2Id,
@@ -73,6 +74,7 @@ export async function addRatingSnapshot(snapshot: RatingSnapshot): Promise<void>
 function mapMatchRow(row: Record<string, unknown>): Match {
   return {
     id: row.id as string,
+    orderNumber: (row.order_number as number) ?? null,
     date: row.date as string,
     player1Id: row.player1_id as string,
     player2Id: row.player2_id as string,

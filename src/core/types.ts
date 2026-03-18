@@ -5,6 +5,7 @@ export interface Player {
 
 export interface Match {
   id: string;
+  orderNumber: number | null;
   date: string; // ISO date "2025-10-05"
   player1Id: string;
   player2Id: string;

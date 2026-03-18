@@ -15,28 +15,28 @@ const players: Player[] = [
 
 const matches: Match[] = [
   {
-    id: 'm1', date: '2025-01-01',
+    id: 'm1', orderNumber: 1, date: '2025-01-01',
     player1Id: 'alice', player2Id: 'bob',
     score1: 11, score2: 7,
     eloBeforeP1: 1000, eloBeforeP2: 1000,
     eloAfterP1: 1016, eloAfterP2: 984,
   },
   {
-    id: 'm2', date: '2025-01-02',
+    id: 'm2', orderNumber: 2, date: '2025-01-02',
     player1Id: 'bob', player2Id: 'carol',
     score1: 11, score2: 9,
     eloBeforeP1: 984, eloBeforeP2: 1000,
     eloAfterP1: 985, eloAfterP2: 999,
   },
   {
-    id: 'm3', date: '2025-01-03',
+    id: 'm3', orderNumber: 3, date: '2025-01-03',
     player1Id: 'alice', player2Id: 'carol',
     score1: 8, score2: 11,
     eloBeforeP1: 1016, eloBeforeP2: 999,
     eloAfterP1: 999, eloAfterP2: 1016,
   },
   {
-    id: 'm4', date: '2025-01-04',
+    id: 'm4', orderNumber: 4, date: '2025-01-04',
     player1Id: 'alice', player2Id: 'bob',
     score1: 11, score2: 11,
     eloBeforeP1: 999, eloBeforeP2: 985,

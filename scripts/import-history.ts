@@ -54,12 +54,13 @@ function parseDate(dateStr: string): string {
 }
 
 async function main() {
-  const csv = readFileSync('history_raw.csv', 'utf-8');
+  const csv = readFileSync('history_raw2.csv', 'utf-8');
   const rows = parseCSV(csv);
   const header = rows[0];
 
   // Find column indices
   const colIdx = (name: string) => header.indexOf(name);
+  const iOrder = colIdx('Порядок');
   const iP1 = colIdx('Игрок1');
   const iP2 = colIdx('Игрок2');
   const iS1 = colIdx('О1');
@@ -77,7 +78,7 @@ async function main() {
 
   const matches: any[] = [];
   const snapshots: any[] = [];
-  let matchCounter: Record<string, number> = {};
+  const players = new Set<string>();
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -106,10 +107,18 @@ async function main() {
       continue;
     }
 
-    // Generate unique match ID
-    const dateKey = date;
-    matchCounter[dateKey] = (matchCounter[dateKey] || 0) + 1;
-    const matchId = `${dateKey}-${String(matchCounter[dateKey]).padStart(3, '0')}`;
+    const orderNumber = parseInt(row[iOrder]);
+    if (isNaN(orderNumber)) {
+      console.warn(`Invalid order number at row ${i + 1}: ${row[iOrder]}`);
+      continue;
+    }
+
+    // Use order number as match ID
+    const matchId = String(orderNumber);
+
+    // Track players
+    players.add(player1Name);
+    players.add(player2Name);
 
     // Calculate elo after from the rating columns in this row
     const ratingsAfter: Record<string, number> = {};
@@ -125,6 +134,7 @@ async function main() {
 
     matches.push({
       id: matchId,
+      order_number: orderNumber,
       date,
       player1_id: player1Id,
       player2_id: player2Id,
@@ -143,15 +153,25 @@ async function main() {
     });
   }
 
-  console.log(`Parsed ${matches.length} matches`);
+  console.log(`Parsed ${matches.length} matches, ${players.size} players`);
 
-  // Clear existing data (snapshots first due to FK)
+  // Clear existing data (snapshots → matches → players, FK order)
   console.log('Clearing existing data...');
   const { error: delSnap } = await supabase.from('rating_snapshots').delete().neq('id', 0);
   if (delSnap) console.error('Error clearing snapshots:', delSnap.message);
 
   const { error: delMatch } = await supabase.from('matches').delete().neq('id', '');
   if (delMatch) console.error('Error clearing matches:', delMatch.message);
+
+  const { error: delPlayers } = await supabase.from('players').delete().neq('id', '');
+  if (delPlayers) console.error('Error clearing players:', delPlayers.message);
+
+  // Insert players
+  console.log('Inserting players...');
+  const playerRows = [...players].map(name => ({ id: NAME_TO_ID[name], name }));
+  const { error: pErr } = await supabase.from('players').insert(playerRows);
+  if (pErr) console.error('Error inserting players:', pErr.message);
+  else console.log(`  ${playerRows.length} players inserted.`);
 
   // Insert in batches of 50
   const BATCH = 50;
