@@ -11,7 +11,7 @@ interface Props {
 export function Scheduler({ players, snapshots }: Props) {
   const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(new Set());
   const [courts, setCourts] = useState('2');
-  const [slotMinutes, setSlotMinutes] = useState('15');
+  const [slotMinutes, setSlotMinutes] = useState('7');
   const [totalMinutes, setTotalMinutes] = useState('60');
   const [schedule, setSchedule] = useState<Schedule | null>(null);
 

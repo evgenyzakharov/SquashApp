@@ -25,15 +25,26 @@ export function generateSchedule(input: ScheduleInput): Schedule {
   const isFullRoundRobin = totalRounds >= roundRobinRounds;
 
   if (isFullRoundRobin) {
+    // Full round-robin first, then fill remaining rounds with rating-based matches
+    const rrRounds = generateCircleMethod(players, courts, roundRobinRounds);
+    const remainingSlots = totalRounds - rrRounds.length;
+    if (remainingSlots > 0) {
+      const extraRounds = generateRatingBased(players, courts, remainingSlots, rrRounds.length);
+      return {
+        rounds: [...rrRounds, ...extraRounds],
+        totalRounds,
+        isFullRoundRobin: true,
+      };
+    }
     return {
-      rounds: generateCircleMethod(players, courts, totalRounds),
+      rounds: rrRounds,
       totalRounds,
       isFullRoundRobin: true,
     };
   }
 
   return {
-    rounds: generateRatingBased(players, courts, totalRounds),
+    rounds: generateRatingBased(players, courts, totalRounds, 0),
     totalRounds,
     isFullRoundRobin: false,
   };
@@ -105,6 +116,7 @@ function generateRatingBased(
   players: PlayerWithRating[],
   courts: number,
   totalRounds: number,
+  roundOffset: number = 0,
 ): ScheduleRound[] {
   const n = players.length;
   const matchesPerRound = Math.min(Math.floor(n / 2), courts);
@@ -200,7 +212,7 @@ function generateRatingBased(
       restedLastRound.add(id);
     }
 
-    rounds.push({ round: round + 1, matches: roundMatches, resting });
+    rounds.push({ round: roundOffset + round + 1, matches: roundMatches, resting });
   }
 
   return rounds;

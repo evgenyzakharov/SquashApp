@@ -33,26 +33,42 @@ describe('generateSchedule', () => {
     expect(result.rounds.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('full round-robin: every pair plays exactly once', () => {
+  it('full round-robin: every pair plays at least once', () => {
     const players = makePlayers(4);
     const result = generateSchedule({
       players,
       courts: 2,
       slotMinutes: 15,
-      totalMinutes: 60,
+      totalMinutes: 45, // Exactly 3 rounds = full round-robin for 4 players
     });
 
     const playedPairs = new Set<string>();
     for (const round of result.rounds) {
       for (const match of round.matches) {
         const key = [match.player1Id, match.player2Id].sort().join(':');
-        expect(playedPairs.has(key)).toBe(false);
         playedPairs.add(key);
       }
     }
 
-    // C(4,2) = 6 pairs
+    // C(4,2) = 6 pairs, all should be covered
     expect(playedPairs.size).toBe(6);
+  });
+
+  it('extra time after round-robin fills with more matches', () => {
+    const players = makePlayers(4);
+    // 3 rounds for RR + 3 extra = 6 total rounds
+    const result = generateSchedule({
+      players,
+      courts: 2,
+      slotMinutes: 10,
+      totalMinutes: 60,
+    });
+
+    expect(result.isFullRoundRobin).toBe(true);
+    expect(result.rounds.length).toBe(6);
+    // Should have more than 6 total matches (RR gives 6, extra rounds add more)
+    const totalMatches = result.rounds.reduce((sum, r) => sum + r.matches.length, 0);
+    expect(totalMatches).toBeGreaterThan(6);
   });
 
   it('uses rating-based scheduling when time is limited', () => {
