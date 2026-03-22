@@ -1,14 +1,31 @@
 import { useMemo } from 'react';
-import type { Player, Match } from '../core/types';
-import { buildHeadToHead } from '../core/stats';
+import type { Player, Match, RatingSnapshot } from '../core/types';
+import { buildHeadToHead, buildExpectedWinMatrix } from '../core/stats';
+import { DEFAULT_INITIAL_RATING } from '../core/types';
 
 interface Props {
   players: Player[];
   matches: Match[];
+  snapshots: RatingSnapshot[];
 }
 
-export function HeadToHead({ players, matches }: Props) {
+export function HeadToHead({ players, matches, snapshots }: Props) {
   const h2h = useMemo(() => buildHeadToHead(players, matches), [players, matches]);
+
+  const currentRatings = useMemo(() => {
+    const ratings: Record<string, number> = {};
+    for (const p of players) ratings[p.id] = DEFAULT_INITIAL_RATING;
+    if (snapshots.length > 0) {
+      const latest = snapshots[snapshots.length - 1];
+      for (const [id, r] of Object.entries(latest.ratings)) ratings[id] = r;
+    }
+    return ratings;
+  }, [players, snapshots]);
+
+  const expected = useMemo(
+    () => buildExpectedWinMatrix(players, currentRatings),
+    [players, currentRatings],
+  );
 
   if (players.length === 0) {
     return <p>Нет данных</p>;
@@ -41,6 +58,44 @@ export function HeadToHead({ players, matches }: Props) {
                     ? `rgba(22, 163, 74, ${winPct * 0.3})`
                     : winPct < 0.5
                       ? `rgba(220, 38, 38, ${(1 - winPct) * 0.3})`
+                      : undefined;
+                  return (
+                    <td key={col.id} style={{ background: bg }}>
+                      {pct}%
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="section-title" style={{ marginTop: 32 }}>DresdenBet — вероятность победы согласно рейтингу</h2>
+      <div className="matrix-table" style={{ overflowX: 'auto' }}>
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              {players.map((p) => (
+                <th key={p.id}>{p.name} ({currentRatings[p.id]})</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {players.map((row) => (
+              <tr key={row.id}>
+                <td><strong>{row.name}</strong></td>
+                {players.map((col) => {
+                  if (row.id === col.id) {
+                    return <td key={col.id} className="self">—</td>;
+                  }
+                  const prob = expected.get(row.id)?.get(col.id) ?? 0.5;
+                  const pct = (prob * 100).toFixed(0);
+                  const bg = prob > 0.5
+                    ? `rgba(22, 163, 74, ${(prob - 0.5) * 0.6})`
+                    : prob < 0.5
+                      ? `rgba(220, 38, 38, ${(0.5 - prob) * 0.6})`
                       : undefined;
                   return (
                     <td key={col.id} style={{ background: bg }}>

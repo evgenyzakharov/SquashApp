@@ -86,7 +86,7 @@ export default function App() {
               />
             )}
             {tab === 'h2h' && (
-              <HeadToHead players={players} matches={matches} />
+              <HeadToHead players={players} matches={matches} snapshots={snapshots} />
             )}
             {tab === 'scheduler' && (
               <Scheduler players={players} snapshots={snapshots} />
