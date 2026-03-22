@@ -62,6 +62,7 @@ export function MatchHistory({ players, matches }: Props) {
       <table>
         <thead>
           <tr>
+            <th>#</th>
             <th>Дата</th>
             <th>Игрок 1</th>
             <th>Счёт</th>
@@ -77,6 +78,7 @@ export function MatchHistory({ players, matches }: Props) {
             const isDraw = m.score1 === m.score2;
             return (
               <tr key={m.id}>
+                <td>{m.orderNumber}</td>
                 <td>{m.date}</td>
                 <td className={p1Won ? 'match-win' : isDraw ? 'match-draw' : 'match-loss'}>
                   {playerNames.get(m.player1Id) ?? m.player1Id}
