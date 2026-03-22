@@ -36,6 +36,7 @@ export interface PlayerStats {
   rallyWinPercent: number;
   currentRating: number;
   peakRating: number;
+  peakDate: string | null;
 }
 
 export interface ScheduleInput {

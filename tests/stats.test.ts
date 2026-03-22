@@ -77,9 +77,10 @@ describe('calculatePlayerStats', () => {
     expect(stats.currentRating).toBe(999);
   });
 
-  it('gets peak rating', () => {
+  it('gets peak rating and date', () => {
     const stats = calculatePlayerStats(players[0], matches, snapshots);
     expect(stats.peakRating).toBe(1016);
+    expect(stats.peakDate).toBe('2025-01-01');
   });
 
   it('handles player with no matches', () => {

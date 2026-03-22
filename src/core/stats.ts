@@ -42,7 +42,7 @@ export function calculatePlayerStats(
   }
 
   const currentRating = getCurrentRating(player.id, ratingSnapshots);
-  const peakRating = getPeakRating(player.id, ratingSnapshots);
+  const { peakRating, peakDate } = getPeakRatingWithDate(player.id, ratingSnapshots);
 
   return {
     playerId: player.id,
@@ -57,6 +57,7 @@ export function calculatePlayerStats(
     rallyWinPercent: pointsWon + pointsLost > 0 ? pointsWon / (pointsWon + pointsLost) : 0,
     currentRating,
     peakRating,
+    peakDate,
   };
 }
 
@@ -70,15 +71,19 @@ function getCurrentRating(playerId: string, snapshots: RatingSnapshot[]): number
 }
 
 /**
- * Get peak (highest ever) rating for a player across all snapshots.
+ * Get peak (highest ever) rating and date for a player across all snapshots.
  */
-function getPeakRating(playerId: string, snapshots: RatingSnapshot[]): number {
+function getPeakRatingWithDate(playerId: string, snapshots: RatingSnapshot[]): { peakRating: number; peakDate: string | null } {
   let peak = DEFAULT_INITIAL_RATING;
+  let peakDate: string | null = null;
   for (const snap of snapshots) {
     const r = snap.ratings[playerId];
-    if (r !== undefined && r > peak) peak = r;
+    if (r !== undefined && r > peak) {
+      peak = r;
+      peakDate = snap.date;
+    }
   }
-  return peak;
+  return { peakRating: peak, peakDate };
 }
 
 /**

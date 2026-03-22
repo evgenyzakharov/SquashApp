@@ -38,9 +38,12 @@ export function Dashboard({ players, matches, snapshots }: Props) {
               <th>Игрок</th>
               <th>Рейтинг</th>
               <th>Пик</th>
+              <th>Дата пика</th>
               <th>Игр</th>
               <th>Побед</th>
               <th>Win%</th>
+              <th>Очк.+</th>
+              <th>Очк.-</th>
               <th>Ø очк.+</th>
               <th>Ø очк.-</th>
               <th>Ø разн.</th>
@@ -54,9 +57,12 @@ export function Dashboard({ players, matches, snapshots }: Props) {
                 <td><strong>{playerNames.get(s.playerId) ?? s.playerId}</strong></td>
                 <td><strong>{s.currentRating}</strong></td>
                 <td>{s.peakRating}</td>
+                <td>{s.peakDate ?? '—'}</td>
                 <td>{s.games}</td>
                 <td>{s.wins}</td>
                 <td>{(s.winPercent * 100).toFixed(0)}%</td>
+                <td>{s.pointsWon}</td>
+                <td>{s.pointsLost}</td>
                 <td>{s.avgPointsWon.toFixed(1)}</td>
                 <td>{s.avgPointsLost.toFixed(1)}</td>
                 <td className={s.avgDifference >= 0 ? 'stat-positive' : 'stat-negative'}>
