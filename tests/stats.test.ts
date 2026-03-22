@@ -77,10 +77,21 @@ describe('calculatePlayerStats', () => {
     expect(stats.currentRating).toBe(999);
   });
 
-  it('gets peak rating and date', () => {
+  it('gets peak rating and date within last 50 days', () => {
+    // Test data dates are old (2025-01-01), so peak50 falls back to current rating
     const stats = calculatePlayerStats(players[0], matches, snapshots);
-    expect(stats.peakRating).toBe(1016);
-    expect(stats.peakDate).toBe('2025-01-01');
+    expect(stats.peakRating).toBe(999); // current rating, since no snapshots in last 50 days
+    expect(stats.peakDate).toBeNull();
+
+    // With recent dates, peak50 should find the max
+    const today = new Date().toISOString().split('T')[0];
+    const recentSnapshots: RatingSnapshot[] = [
+      { date: today, matchId: 'm1', ratings: { alice: 1016, bob: 984, carol: 1000 } },
+      { date: today, matchId: 'm2', ratings: { alice: 999, bob: 985, carol: 1016 } },
+    ];
+    const recentStats = calculatePlayerStats(players[0], matches, recentSnapshots);
+    expect(recentStats.peakRating).toBe(1016);
+    expect(recentStats.peakDate).toBe(today);
   });
 
   it('handles player with no matches', () => {
