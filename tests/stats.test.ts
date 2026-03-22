@@ -127,6 +127,38 @@ describe('buildHeadToHead', () => {
   });
 });
 
+describe('rating consistency: ratings tab must match last match in history', () => {
+  it('current ratings equal elo_after of the last match for each player', () => {
+    const allStats = calculateAllStats(players, matches, snapshots);
+
+    for (const stat of allStats) {
+      // Find the last match this player was in
+      const playerMatches = matches.filter(
+        (m) => m.player1Id === stat.playerId || m.player2Id === stat.playerId,
+      );
+      if (playerMatches.length === 0) continue;
+
+      const lastMatch = playerMatches[playerMatches.length - 1];
+      const isP1 = lastMatch.player1Id === stat.playerId;
+      const eloAfterLastMatch = isP1 ? lastMatch.eloAfterP1 : lastMatch.eloAfterP2;
+
+      expect(stat.currentRating).toBe(eloAfterLastMatch);
+    }
+  });
+
+  it('current ratings match the latest snapshot', () => {
+    const allStats = calculateAllStats(players, matches, snapshots);
+    const latestSnapshot = snapshots[snapshots.length - 1];
+
+    for (const stat of allStats) {
+      const snapshotRating = latestSnapshot.ratings[stat.playerId];
+      if (snapshotRating !== undefined) {
+        expect(stat.currentRating).toBe(snapshotRating);
+      }
+    }
+  });
+});
+
 describe('buildExpectedWinMatrix', () => {
   it('returns expected probabilities based on ratings', () => {
     const ratings = { alice: 999, bob: 985, carol: 1016 };
