@@ -41,7 +41,7 @@ export function Dashboard({ players, matches, snapshots }: Props) {
               <th>Дата пика</th>
               <th>Игр</th>
               <th>Побед</th>
-              <th>Win%</th>
+              <th>% Побед</th>
               <th>Очк.+</th>
               <th>Очк.-</th>
               <th>Ø очк.+</th>
@@ -57,7 +57,7 @@ export function Dashboard({ players, matches, snapshots }: Props) {
                 <td><strong>{playerNames.get(s.playerId) ?? s.playerId}</strong></td>
                 <td><strong>{s.currentRating}</strong></td>
                 <td>{s.peakRating}</td>
-                <td>{s.peakDate ?? '—'}</td>
+                <td>{s.peakDate ? s.peakDate.slice(8, 10) + '.' + s.peakDate.slice(5, 7) : '—'}</td>
                 <td>{s.games}</td>
                 <td>{s.wins}</td>
                 <td>{(s.winPercent * 100).toFixed(0)}%</td>
