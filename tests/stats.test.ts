@@ -160,6 +160,26 @@ describe('rating consistency: ratings tab must match last match in history', () 
   });
 });
 
+describe('calculatePlayerStats edge cases', () => {
+  it('pointsWon and pointsLost are totals, not averages', () => {
+    const stats = calculatePlayerStats(players[0], matches, snapshots);
+    // Alice: m1 (11:7), m3 (8:11), m4 (11:11)
+    expect(stats.pointsWon).toBe(11 + 8 + 11);
+    expect(stats.pointsLost).toBe(7 + 11 + 11);
+  });
+
+  it('rallyWinPercent is pointsWon / total points', () => {
+    const stats = calculatePlayerStats(players[0], matches, snapshots);
+    expect(stats.rallyWinPercent).toBeCloseTo(30 / (30 + 29));
+  });
+
+  it('peakDate is null when player has no snapshots', () => {
+    const newPlayer: Player = { id: 'dave', name: 'Dave' };
+    const stats = calculatePlayerStats(newPlayer, matches, snapshots);
+    expect(stats.peakDate).toBeNull();
+  });
+});
+
 describe('buildExpectedWinMatrix', () => {
   it('returns expected probabilities based on ratings', () => {
     const ratings = { alice: 999, bob: 985, carol: 1016 };

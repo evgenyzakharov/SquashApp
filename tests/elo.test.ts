@@ -81,8 +81,31 @@ describe('calculateNewRatings', () => {
     // From the spreadsheet: Вадим(1041) vs Вова(964), Вадим wins 16-14
     const result = calculateNewRatings(1041, 964, 16, 14);
     expect(result.expectedA).toBeCloseTo(0.61, 1);
-    // Winner should gain ~12 points (K=32, actual=1, expected~0.61 → 32*(1-0.61)≈12)
     expect(result.newRatingA).toBeGreaterThan(1041);
     expect(result.newRatingB).toBeLessThan(964);
+  });
+
+  it('uses K=20 by default', () => {
+    // Equal ratings, win: change = 20 * (1 - 0.5) = 10
+    const result = calculateNewRatings(1000, 1000, 11, 7);
+    expect(result.newRatingA).toBe(1010);
+    expect(result.newRatingB).toBe(990);
+  });
+
+  it('total rating is conserved (sum unchanged)', () => {
+    const result = calculateNewRatings(1100, 900, 11, 5);
+    expect(result.newRatingA + result.newRatingB).toBe(1100 + 900);
+  });
+
+  it('verified against club spreadsheet K=20 values', () => {
+    // Match 469: Вадим(1115) vs Влад(1291) 5:11
+    const r1 = calculateNewRatings(1115, 1291, 5, 11);
+    expect(r1.newRatingA).toBe(1110);
+    expect(r1.newRatingB).toBe(1296);
+
+    // Match 470: Вадим(1110) vs Женя(1141) 11:2
+    const r2 = calculateNewRatings(1110, 1141, 11, 2);
+    expect(r2.newRatingA).toBe(1121);
+    expect(r2.newRatingB).toBe(1130);
   });
 });
