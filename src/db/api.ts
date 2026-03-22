@@ -51,7 +51,7 @@ export async function fetchRatingSnapshots(): Promise<RatingSnapshot[]> {
   const { data, error } = await supabase
     .from('rating_snapshots')
     .select('date, match_id, ratings')
-    .order('date', { ascending: true });
+    .order('id', { ascending: true });
   if (error) throw error;
   return (data ?? []).map((row) => ({
     date: row.date,
