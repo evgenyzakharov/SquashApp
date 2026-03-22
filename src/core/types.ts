@@ -57,5 +57,5 @@ export interface Schedule {
   isFullRoundRobin: boolean;
 }
 
-export const DEFAULT_K_FACTOR = 32;
+export const DEFAULT_K_FACTOR = 20;
 export const DEFAULT_INITIAL_RATING = 1000;
