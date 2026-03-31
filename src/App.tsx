@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Player, Match, RatingSnapshot } from './core/types';
-import { fetchPlayers, fetchMatches, fetchRatingSnapshots } from './db/api';
+import { fetchPlayers, fetchAllPlayers, fetchMatches, fetchRatingSnapshots } from './db/api';
 import { Dashboard } from './components/Dashboard';
 import { MatchHistory } from './components/MatchHistory';
 import { AddMatch } from './components/AddMatch';
 import { Scheduler } from './components/Scheduler';
 import { HeadToHead } from './components/HeadToHead';
+import { Settings } from './components/Settings';
 import './App.css';
 
 type Tab = 'dashboard' | 'history' | 'add' | 'scheduler' | 'h2h';
@@ -13,21 +14,25 @@ type Tab = 'dashboard' | 'history' | 'add' | 'scheduler' | 'h2h';
 export default function App() {
   const [tab, setTab] = useState<Tab>('dashboard');
   const [players, setPlayers] = useState<Player[]>([]);
+  const [allPlayers, setAllPlayers] = useState<Player[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [snapshots, setSnapshots] = useState<RatingSnapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const [p, m, s] = await Promise.all([
+      const [p, ap, m, s] = await Promise.all([
         fetchPlayers(),
+        fetchAllPlayers(),
         fetchMatches(),
         fetchRatingSnapshots(),
       ]);
       setPlayers(p);
+      setAllPlayers(ap);
       setMatches(m);
       setSnapshots(s);
     } catch (e) {
@@ -52,7 +57,23 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Squash Club</h1>
+        <div className="header-row">
+          <h1>Squash Club</h1>
+          <button
+            className="settings-btn"
+            onClick={() => setShowSettings(!showSettings)}
+            title="Настройки"
+          >
+            ⚙
+          </button>
+        </div>
+        {showSettings && (
+          <Settings
+            allPlayers={allPlayers}
+            onChanged={loadData}
+            onClose={() => setShowSettings(false)}
+          />
+        )}
         <nav className="tabs">
           {tabs.map((t) => (
             <button
@@ -75,7 +96,7 @@ export default function App() {
               <Dashboard players={players} matches={matches} snapshots={snapshots} />
             )}
             {tab === 'history' && (
-              <MatchHistory players={players} matches={matches} />
+              <MatchHistory players={allPlayers} matches={matches} />
             )}
             {tab === 'add' && (
               <AddMatch
@@ -86,7 +107,7 @@ export default function App() {
               />
             )}
             {tab === 'h2h' && (
-              <HeadToHead players={players} matches={matches} snapshots={snapshots} />
+              <HeadToHead players={allPlayers} matches={matches} snapshots={snapshots} />
             )}
             {tab === 'scheduler' && (
               <Scheduler players={players} snapshots={snapshots} />

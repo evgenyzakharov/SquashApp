@@ -6,7 +6,17 @@ import type { Player, Match, RatingSnapshot } from '../core/types';
 export async function fetchPlayers(): Promise<Player[]> {
   const { data, error } = await supabase
     .from('players')
-    .select('id, name')
+    .select('id, name, hidden')
+    .or('hidden.is.null,hidden.eq.false')
+    .order('name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchAllPlayers(): Promise<Player[]> {
+  const { data, error } = await supabase
+    .from('players')
+    .select('id, name, hidden')
     .order('name');
   if (error) throw error;
   return data ?? [];
@@ -14,6 +24,22 @@ export async function fetchPlayers(): Promise<Player[]> {
 
 export async function addPlayer(player: Player): Promise<void> {
   const { error } = await supabase.from('players').insert(player);
+  if (error) throw error;
+}
+
+export async function hidePlayer(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('players')
+    .update({ hidden: true })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function unhidePlayer(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('players')
+    .update({ hidden: false })
+    .eq('id', id);
   if (error) throw error;
 }
 

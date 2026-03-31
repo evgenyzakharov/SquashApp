@@ -1,6 +1,7 @@
 export interface Player {
   id: string;
   name: string;
+  hidden?: boolean;
 }
 
 export interface Match {
