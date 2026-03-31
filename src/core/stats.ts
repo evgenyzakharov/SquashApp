@@ -127,6 +127,9 @@ export function buildHeadToHead(
     const p1 = m.player1Id;
     const p2 = m.player2Id;
 
+    // Skip matches involving players not in the list (e.g. hidden)
+    if (!games.has(p1) || !games.has(p2)) continue;
+
     incrementMap(games.get(p1)!, p2);
     incrementMap(games.get(p2)!, p1);
 

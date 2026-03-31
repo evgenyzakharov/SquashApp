@@ -191,6 +191,53 @@ describe('calculatePlayerStats edge cases', () => {
   });
 });
 
+describe('hidden players', () => {
+  const activePlayers: Player[] = [
+    { id: 'alice', name: 'Alice' },
+    { id: 'carol', name: 'Carol' },
+  ];
+  // Bob is hidden — not in activePlayers but has matches
+
+  it('calculateAllStats only returns stats for active (non-hidden) players', () => {
+    const allStats = calculateAllStats(activePlayers, matches, snapshots);
+    expect(allStats).toHaveLength(2);
+    expect(allStats.map((s) => s.playerId)).toEqual(['alice', 'carol']);
+  });
+
+  it('active player stats still count matches against hidden players', () => {
+    const allStats = calculateAllStats(activePlayers, matches, snapshots);
+    const aliceStats = allStats.find((s) => s.playerId === 'alice')!;
+    // Alice played 3 matches: m1 vs bob, m3 vs carol, m4 vs bob
+    // All should be counted even though bob is hidden
+    expect(aliceStats.games).toBe(3);
+    expect(aliceStats.pointsWon).toBe(11 + 8 + 11);
+  });
+
+  it('h2h matrix only includes active players but counts all matches', () => {
+    const h2h = buildHeadToHead(activePlayers, matches);
+    // Matrix should only have alice and carol
+    expect(h2h.has('alice')).toBe(true);
+    expect(h2h.has('carol')).toBe(true);
+    expect(h2h.has('bob')).toBe(false);
+
+    // Alice vs Carol: 0 wins, 1 loss → 0%
+    expect(h2h.get('alice')!.get('carol')).toBe(0);
+    // Carol vs Alice: 1 win → 100%
+    expect(h2h.get('carol')!.get('alice')).toBe(1);
+    // No bob column in alice's row
+    expect(h2h.get('alice')!.has('bob')).toBe(false);
+  });
+
+  it('expected win matrix only includes active players', () => {
+    const ratings = { alice: 999, bob: 985, carol: 1016 };
+    const matrix = buildExpectedWinMatrix(activePlayers, ratings);
+    expect(matrix.has('alice')).toBe(true);
+    expect(matrix.has('carol')).toBe(true);
+    expect(matrix.has('bob')).toBe(false);
+    expect(matrix.get('alice')!.has('bob')).toBe(false);
+  });
+});
+
 describe('buildExpectedWinMatrix', () => {
   it('returns expected probabilities based on ratings', () => {
     const ratings = { alice: 999, bob: 985, carol: 1016 };
