@@ -3,6 +3,7 @@ import type { Player, Match, RatingSnapshot } from '../core/types';
 import { calculateNewRatings } from '../core/elo';
 import { DEFAULT_INITIAL_RATING } from '../core/types';
 import { addMatch, addRatingSnapshot } from '../db/api';
+import { addToQueue } from '../core/offlineQueue';
 
 interface ParsedMatch {
   player1Name: string;
@@ -19,9 +20,10 @@ interface Props {
   matches: Match[];
   snapshots: RatingSnapshot[];
   onMatchAdded: () => void;
+  onOfflineChange?: () => void;
 }
 
-export function AddMatch({ players, matches, snapshots, onMatchAdded }: Props) {
+export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineChange }: Props) {
   const [player1, setPlayer1] = useState('');
   const [player2, setPlayer2] = useState('');
   const [score1, setScore1] = useState('');
@@ -170,7 +172,20 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded }: Props) {
       setBulkText('');
       onMatchAdded();
     } catch (err) {
-      setBulkResults([...results, `Ошибка: ${err instanceof Error ? err.message : 'Unknown'}`]);
+      if (!navigator.onLine) {
+        // Save remaining unsaved matches to offline queue
+        const savedCount = results.length;
+        for (let i = savedCount; i < parsedBulk.length; i++) {
+          const pm = parsedBulk[i];
+          addToQueue({ date, player1Id: pm.player1Id, player2Id: pm.player2Id, score1: pm.score1, score2: pm.score2 });
+        }
+        const offlineCount = parsedBulk.length - savedCount;
+        setBulkResults([...results, `${offlineCount} матчей сохранено офлайн (будет синхронизировано)`]);
+        setBulkText('');
+        onOfflineChange?.();
+      } else {
+        setBulkResults([...results, `Ошибка: ${err instanceof Error ? err.message : 'Unknown'}`]);
+      }
     } finally {
       setSaving(false);
     }
@@ -235,7 +250,15 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded }: Props) {
       setScore2('');
       onMatchAdded();
     } catch (err) {
-      setMessage(`Ошибка: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      if (!navigator.onLine) {
+        addToQueue({ date, player1Id: player1, player2Id: player2, score1: s1, score2: s2 });
+        setMessage('Сохранено офлайн (будет синхронизировано при подключении)');
+        setScore1('');
+        setScore2('');
+        onOfflineChange?.();
+      } else {
+        setMessage(`Ошибка: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
     } finally {
       setSaving(false);
     }

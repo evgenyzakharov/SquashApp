@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Player, Match, RatingSnapshot } from './core/types';
-import { fetchPlayers, fetchAllPlayers, fetchMatches, fetchRatingSnapshots } from './db/api';
+import { fetchPlayers, fetchAllPlayers, fetchMatches, fetchRatingSnapshots, addMatch, addRatingSnapshot } from './db/api';
+import { calculateNewRatings } from './core/elo';
+import { DEFAULT_INITIAL_RATING } from './core/types';
+import { getQueue, getQueueSize, clearQueue } from './core/offlineQueue';
 import { Dashboard } from './components/Dashboard';
 import { MatchHistory } from './components/MatchHistory';
 import { AddMatch } from './components/AddMatch';
@@ -20,6 +23,12 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [offlineCount, setOfflineCount] = useState(getQueueSize());
+  const [syncing, setSyncing] = useState(false);
+
+  const refreshOfflineCount = useCallback(() => {
+    setOfflineCount(getQueueSize());
+  }, []);
 
   const loadData = useCallback(async () => {
     try {
@@ -42,9 +51,81 @@ export default function App() {
     }
   }, []);
 
+  const syncOffline = useCallback(async () => {
+    const queue = getQueue();
+    if (queue.length === 0) return;
+    if (!navigator.onLine) return;
+
+    setSyncing(true);
+    try {
+      // Reload fresh data first
+      const [p, m, s] = await Promise.all([
+        fetchPlayers(),
+        fetchMatches(),
+        fetchRatingSnapshots(),
+      ]);
+
+      const ratings: Record<string, number> = {};
+      for (const pl of p) ratings[pl.id] = DEFAULT_INITIAL_RATING;
+      if (s.length > 0) {
+        const latest = s[s.length - 1];
+        for (const [id, r] of Object.entries(latest.ratings)) ratings[id] = r;
+      }
+      let maxOrder = m.reduce((max, mt) => Math.max(max, mt.orderNumber ?? 0), 0);
+      let matchCount = m.length;
+
+      for (const om of queue) {
+        const rA = ratings[om.player1Id] ?? DEFAULT_INITIAL_RATING;
+        const rB = ratings[om.player2Id] ?? DEFAULT_INITIAL_RATING;
+        const elo = calculateNewRatings(rA, rB, om.score1, om.score2);
+
+        maxOrder++;
+        matchCount++;
+        const matchId = `${om.date}-${String(matchCount).padStart(3, '0')}`;
+
+        await addMatch({
+          id: matchId,
+          orderNumber: maxOrder,
+          date: om.date,
+          player1Id: om.player1Id,
+          player2Id: om.player2Id,
+          score1: om.score1,
+          score2: om.score2,
+          eloBeforeP1: rA,
+          eloBeforeP2: rB,
+          eloAfterP1: elo.newRatingA,
+          eloAfterP2: elo.newRatingB,
+        });
+
+        ratings[om.player1Id] = elo.newRatingA;
+        ratings[om.player2Id] = elo.newRatingB;
+
+        await addRatingSnapshot({
+          date: om.date,
+          matchId,
+          ratings: { ...ratings },
+        });
+      }
+
+      clearQueue();
+      refreshOfflineCount();
+      await loadData();
+    } catch {
+      // Will retry on next online event
+    } finally {
+      setSyncing(false);
+    }
+  }, [loadData, refreshOfflineCount]);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    const handleOnline = () => { syncOffline(); };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [syncOffline]);
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'dashboard', label: 'Рейтинг' },
@@ -59,6 +140,16 @@ export default function App() {
       <header className="app-header">
         <div className="header-row">
           <h1>Squash Club</h1>
+          {offlineCount > 0 && (
+            <button
+              className="offline-badge"
+              onClick={syncOffline}
+              disabled={syncing}
+              title="Нажмите для синхронизации"
+            >
+              {syncing ? 'Синк...' : `${offlineCount} офлайн`}
+            </button>
+          )}
           <button
             className="settings-btn"
             onClick={() => setShowSettings(!showSettings)}
@@ -104,6 +195,7 @@ export default function App() {
                 matches={matches}
                 snapshots={snapshots}
                 onMatchAdded={loadData}
+                onOfflineChange={refreshOfflineCount}
               />
             )}
             {tab === 'h2h' && (

@@ -300,6 +300,28 @@ tr:hover {
   background: #e8e8e8;
 }
 
+/* ─── Offline badge ──────────────────────── */
+.offline-badge {
+  background: #f59e0b;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.offline-badge:hover {
+  background: #d97706;
+}
+
+.offline-badge:disabled {
+  background: #fbbf24;
+  cursor: wait;
+}
+
 /* ─── Settings panel ─────────────────────── */
 .settings-panel {
   background: #f8f9fa;
