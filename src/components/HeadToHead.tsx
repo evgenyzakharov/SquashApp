@@ -10,24 +10,26 @@ interface Props {
 }
 
 export function HeadToHead({ players, matches, snapshots }: Props) {
-  const h2h = useMemo(() => buildHeadToHead(players, matches), [players, matches]);
+  const activePlayers = useMemo(() => players.filter((p) => !p.hidden), [players]);
+
+  const h2h = useMemo(() => buildHeadToHead(activePlayers, matches), [activePlayers, matches]);
 
   const currentRatings = useMemo(() => {
     const ratings: Record<string, number> = {};
-    for (const p of players) ratings[p.id] = DEFAULT_INITIAL_RATING;
+    for (const p of activePlayers) ratings[p.id] = DEFAULT_INITIAL_RATING;
     if (snapshots.length > 0) {
       const latest = snapshots[snapshots.length - 1];
       for (const [id, r] of Object.entries(latest.ratings)) ratings[id] = r;
     }
     return ratings;
-  }, [players, snapshots]);
+  }, [activePlayers, snapshots]);
 
   const expected = useMemo(
-    () => buildExpectedWinMatrix(players, currentRatings),
-    [players, currentRatings],
+    () => buildExpectedWinMatrix(activePlayers, currentRatings),
+    [activePlayers, currentRatings],
   );
 
-  if (players.length === 0) {
+  if (activePlayers.length === 0) {
     return <p>Нет данных</p>;
   }
 
@@ -39,16 +41,16 @@ export function HeadToHead({ players, matches, snapshots }: Props) {
           <thead>
             <tr>
               <th></th>
-              {players.map((p) => (
+              {activePlayers.map((p) => (
                 <th key={p.id}>{p.name}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {players.map((row) => (
+            {activePlayers.map((row) => (
               <tr key={row.id}>
                 <td><strong>{row.name}</strong></td>
-                {players.map((col) => {
+                {activePlayers.map((col) => {
                   if (row.id === col.id) {
                     return <td key={col.id} className="self">—</td>;
                   }
@@ -77,16 +79,16 @@ export function HeadToHead({ players, matches, snapshots }: Props) {
           <thead>
             <tr>
               <th></th>
-              {players.map((p) => (
+              {activePlayers.map((p) => (
                 <th key={p.id}>{p.name} ({currentRatings[p.id]})</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {players.map((row) => (
+            {activePlayers.map((row) => (
               <tr key={row.id}>
                 <td><strong>{row.name}</strong></td>
-                {players.map((col) => {
+                {activePlayers.map((col) => {
                   if (row.id === col.id) {
                     return <td key={col.id} className="self">—</td>;
                   }
