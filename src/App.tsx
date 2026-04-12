@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Player, Match, RatingSnapshot } from './core/types';
-import { fetchPlayers, fetchAllPlayers, fetchMatches, fetchRatingSnapshots, addMatch, addRatingSnapshot } from './db/api';
+import { fetchPlayers, fetchAllPlayers, fetchMatches, fetchRatingSnapshots, addMatch, addRatingSnapshot, deleteMatch, deleteSnapshotsByMatchIds, updateMatchElo } from './db/api';
 import { calculateNewRatings } from './core/elo';
 import { DEFAULT_INITIAL_RATING } from './core/types';
 import { getQueue, getQueueSize, clearQueue } from './core/offlineQueue';
+import { recalculateFrom } from './core/recalculate';
 import { Dashboard } from './components/Dashboard';
 import { MatchHistory } from './components/MatchHistory';
 import { AddMatch } from './components/AddMatch';
@@ -127,6 +128,57 @@ export default function App() {
     return () => window.removeEventListener('online', handleOnline);
   }, [syncOffline]);
 
+  const handleDeleteMatch = useCallback(async (matchId: string) => {
+    const match = matches.find((m) => m.id === matchId);
+    if (!match) return;
+
+    const orderNum = match.orderNumber ?? 0;
+
+    // Collect match IDs to delete snapshots for: the deleted match + all after it
+    const affectedMatchIds = matches
+      .filter((m) => (m.orderNumber ?? 0) >= orderNum)
+      .map((m) => m.id);
+
+    // Delete snapshots first (FK constraint), then the match
+    await deleteSnapshotsByMatchIds(affectedMatchIds);
+    await deleteMatch(matchId);
+
+    // Get base ratings: from the snapshot just before the deleted match
+    const remainingMatches = matches.filter((m) => m.id !== matchId);
+    const matchesBefore = remainingMatches.filter((m) => (m.orderNumber ?? 0) < orderNum);
+
+    let baseRatings: Record<string, number> = {};
+    for (const p of allPlayers) baseRatings[p.id] = DEFAULT_INITIAL_RATING;
+
+    if (matchesBefore.length > 0) {
+      const lastBefore = matchesBefore[matchesBefore.length - 1];
+      const snap = snapshots.find((s) => s.matchId === lastBefore.id);
+      if (snap) baseRatings = { ...baseRatings, ...snap.ratings };
+    }
+
+    // Recalculate all matches after the deleted one
+    const matchesAfter = remainingMatches.filter((m) => (m.orderNumber ?? 0) > orderNum);
+    if (matchesAfter.length > 0) {
+      const { updatedMatches, newSnapshots } = recalculateFrom(
+        orderNum + 1,
+        remainingMatches,
+        baseRatings,
+      );
+
+      // Update each match's Elo in DB
+      for (const um of updatedMatches) {
+        await updateMatchElo(um);
+      }
+
+      // Re-add snapshots
+      for (const ns of newSnapshots) {
+        await addRatingSnapshot(ns);
+      }
+    }
+
+    await loadData();
+  }, [matches, allPlayers, snapshots, loadData]);
+
   const tabs: { key: Tab; label: string }[] = [
     { key: 'dashboard', label: 'Рейтинг' },
     { key: 'history', label: 'История' },
@@ -187,7 +239,7 @@ export default function App() {
               <Dashboard players={players} matches={matches} snapshots={snapshots} />
             )}
             {tab === 'history' && (
-              <MatchHistory players={allPlayers} matches={matches} />
+              <MatchHistory players={allPlayers} matches={matches} onDeleteMatch={handleDeleteMatch} />
             )}
             {tab === 'add' && (
               <AddMatch

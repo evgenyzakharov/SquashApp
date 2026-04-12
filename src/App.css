@@ -409,6 +409,29 @@ tr:hover {
   background: #b91c1c;
 }
 
+/* ─── Delete match button ────────────────── */
+.btn-delete-match {
+  background: none;
+  border: none;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+
+.btn-delete-match:hover {
+  opacity: 1;
+  background: #fef2f2;
+}
+
+.btn-delete-match:disabled {
+  opacity: 0.2;
+  cursor: wait;
+}
+
 /* ─── Mobile ─────────────────────────────── */
 @media (max-width: 640px) {
   .app {

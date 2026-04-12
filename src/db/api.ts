@@ -71,6 +71,24 @@ export async function addMatch(match: Match): Promise<void> {
   if (error) throw error;
 }
 
+export async function deleteMatch(id: string): Promise<void> {
+  const { error } = await supabase.from('matches').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function updateMatchElo(match: Match): Promise<void> {
+  const { error } = await supabase
+    .from('matches')
+    .update({
+      elo_before_p1: match.eloBeforeP1,
+      elo_before_p2: match.eloBeforeP2,
+      elo_after_p1: match.eloAfterP1,
+      elo_after_p2: match.eloAfterP2,
+    })
+    .eq('id', match.id);
+  if (error) throw error;
+}
+
 // ─── Rating Snapshots ────────────────────────────────────
 
 export async function fetchRatingSnapshots(): Promise<RatingSnapshot[]> {
@@ -92,6 +110,15 @@ export async function addRatingSnapshot(snapshot: RatingSnapshot): Promise<void>
     match_id: snapshot.matchId,
     ratings: snapshot.ratings,
   });
+  if (error) throw error;
+}
+
+export async function deleteSnapshotsByMatchIds(matchIds: string[]): Promise<void> {
+  if (matchIds.length === 0) return;
+  const { error } = await supabase
+    .from('rating_snapshots')
+    .delete()
+    .in('match_id', matchIds);
   if (error) throw error;
 }
 

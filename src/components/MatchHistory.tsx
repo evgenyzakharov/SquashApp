@@ -4,9 +4,11 @@ import type { Player, Match } from '../core/types';
 interface Props {
   players: Player[];
   matches: Match[];
+  onDeleteMatch?: (matchId: string) => Promise<void>;
 }
 
-export function MatchHistory({ players, matches }: Props) {
+export function MatchHistory({ players, matches, onDeleteMatch }: Props) {
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filterPlayer, setFilterPlayer] = useState('');
   const [filterDate, setFilterDate] = useState('');
 
@@ -69,6 +71,7 @@ export function MatchHistory({ players, matches }: Props) {
             <th>Игрок 2</th>
             <th>Elo до</th>
             <th>Elo после</th>
+            {onDeleteMatch && <th></th>}
           </tr>
         </thead>
         <tbody>
@@ -91,6 +94,25 @@ export function MatchHistory({ players, matches }: Props) {
                 </td>
                 <td>{m.eloBeforeP1} / {m.eloBeforeP2}</td>
                 <td>{m.eloAfterP1} / {m.eloAfterP2}</td>
+                {onDeleteMatch && (
+                  <td>
+                    <button
+                      className="btn-delete-match"
+                      disabled={deletingId !== null}
+                      onClick={async () => {
+                        if (!confirm(`Удалить матч #${m.orderNumber}?`)) return;
+                        setDeletingId(m.id);
+                        try {
+                          await onDeleteMatch(m.id);
+                        } finally {
+                          setDeletingId(null);
+                        }
+                      }}
+                    >
+                      {deletingId === m.id ? '...' : '✕'}
+                    </button>
+                  </td>
+                )}
               </tr>
             );
           })}
