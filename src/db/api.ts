@@ -89,6 +89,14 @@ export async function updateMatchElo(match: Match): Promise<void> {
   if (error) throw error;
 }
 
+export async function updateMatchOrder(id: string, orderNumber: number): Promise<void> {
+  const { error } = await supabase
+    .from('matches')
+    .update({ order_number: orderNumber })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 // ─── Rating Snapshots ────────────────────────────────────
 
 export async function fetchRatingSnapshots(): Promise<RatingSnapshot[]> {

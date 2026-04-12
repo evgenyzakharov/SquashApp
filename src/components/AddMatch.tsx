@@ -21,9 +21,10 @@ interface Props {
   snapshots: RatingSnapshot[];
   onMatchAdded: () => void;
   onOfflineChange?: () => void;
+  onAddMatches?: (rawMatches: { date: string; player1Id: string; player2Id: string; score1: number; score2: number }[]) => Promise<string[]>;
 }
 
-export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineChange }: Props) {
+export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineChange, onAddMatches }: Props) {
   const [player1, setPlayer1] = useState('');
   const [player2, setPlayer2] = useState('');
   const [score1, setScore1] = useState('');
@@ -121,70 +122,50 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
 
     setSaving(true);
     setBulkResults([]);
-    const results: string[] = [];
-    const ratings = { ...currentRatings };
-    let maxOrder = matches.reduce((max, m) => Math.max(max, m.orderNumber ?? 0), 0);
-    let matchCount = matches.length;
+
+    const rawMatches = parsedBulk.map((pm) => ({
+      date,
+      player1Id: pm.player1Id,
+      player2Id: pm.player2Id,
+      score1: pm.score1,
+      score2: pm.score2,
+    }));
 
     try {
-      for (const pm of parsedBulk) {
-        const rA = ratings[pm.player1Id] ?? DEFAULT_INITIAL_RATING;
-        const rB = ratings[pm.player2Id] ?? DEFAULT_INITIAL_RATING;
-        const elo = calculateNewRatings(rA, rB, pm.score1, pm.score2);
-
-        maxOrder++;
-        matchCount++;
-        const matchId = `${date}-${String(matchCount).padStart(3, '0')}`;
-
-        const match: Match = {
-          id: matchId,
-          orderNumber: maxOrder,
-          date,
-          player1Id: pm.player1Id,
-          player2Id: pm.player2Id,
-          score1: pm.score1,
-          score2: pm.score2,
-          eloBeforeP1: rA,
-          eloBeforeP2: rB,
-          eloAfterP1: elo.newRatingA,
-          eloAfterP2: elo.newRatingB,
-        };
-
-        ratings[pm.player1Id] = elo.newRatingA;
-        ratings[pm.player2Id] = elo.newRatingB;
-
-        const snapshot: RatingSnapshot = {
-          date,
-          matchId,
-          ratings: { ...ratings },
-        };
-
-        await addMatch(match);
-        await addRatingSnapshot(snapshot);
-
-        results.push(
-          `${pm.player1Name} ${pm.score1}:${pm.score2} ${pm.player2Name} | ` +
-          `Elo: ${rA}→${elo.newRatingA}, ${rB}→${elo.newRatingB}`,
-        );
+      if (onAddMatches) {
+        const results = await onAddMatches(rawMatches);
+        setBulkResults(results);
+      } else {
+        // Fallback: direct sequential insert
+        const results: string[] = [];
+        const ratings = { ...currentRatings };
+        let maxOrder = matches.reduce((max, m) => Math.max(max, m.orderNumber ?? 0), 0);
+        let matchCount = matches.length;
+        for (const pm of parsedBulk) {
+          const rA = ratings[pm.player1Id] ?? DEFAULT_INITIAL_RATING;
+          const rB = ratings[pm.player2Id] ?? DEFAULT_INITIAL_RATING;
+          const elo = calculateNewRatings(rA, rB, pm.score1, pm.score2);
+          maxOrder++; matchCount++;
+          const matchId = `${date}-${String(matchCount).padStart(3, '0')}`;
+          await addMatch({ id: matchId, orderNumber: maxOrder, date, player1Id: pm.player1Id, player2Id: pm.player2Id, score1: pm.score1, score2: pm.score2, eloBeforeP1: rA, eloBeforeP2: rB, eloAfterP1: elo.newRatingA, eloAfterP2: elo.newRatingB });
+          ratings[pm.player1Id] = elo.newRatingA; ratings[pm.player2Id] = elo.newRatingB;
+          await addRatingSnapshot({ date, matchId, ratings: { ...ratings } });
+          results.push(`${pm.player1Name} ${pm.score1}:${pm.score2} ${pm.player2Name} | Elo: ${rA}→${elo.newRatingA}, ${rB}→${elo.newRatingB}`);
+        }
+        setBulkResults(results);
+        onMatchAdded();
       }
-
-      setBulkResults(results);
       setBulkText('');
-      onMatchAdded();
     } catch (err) {
       if (!navigator.onLine) {
-        // Save remaining unsaved matches to offline queue
-        const savedCount = results.length;
-        for (let i = savedCount; i < parsedBulk.length; i++) {
-          const pm = parsedBulk[i];
-          addToQueue({ date, player1Id: pm.player1Id, player2Id: pm.player2Id, score1: pm.score1, score2: pm.score2 });
+        for (const rm of rawMatches) {
+          addToQueue(rm);
         }
-        const offlineCount = parsedBulk.length - savedCount;
-        setBulkResults([...results, `${offlineCount} матчей сохранено офлайн (будет синхронизировано)`]);
+        setBulkResults([`${rawMatches.length} матчей сохранено офлайн (будет синхронизировано)`]);
         setBulkText('');
         onOfflineChange?.();
       } else {
-        setBulkResults([...results, `Ошибка: ${err instanceof Error ? err.message : 'Unknown'}`]);
+        setBulkResults([`Ошибка: ${err instanceof Error ? err.message : 'Unknown'}`]);
       }
     } finally {
       setSaving(false);
@@ -205,50 +186,31 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
       return;
     }
 
-    const rA = currentRatings[player1] ?? DEFAULT_INITIAL_RATING;
-    const rB = currentRatings[player2] ?? DEFAULT_INITIAL_RATING;
-    const elo = calculateNewRatings(rA, rB, s1, s2);
-
-    const matchId = `${date}-${String(matches.length + 1).padStart(3, '0')}`;
-
-    const maxOrder = matches.reduce((max, m) => Math.max(max, m.orderNumber ?? 0), 0);
-
-    const match: Match = {
-      id: matchId,
-      orderNumber: maxOrder + 1,
-      date,
-      player1Id: player1,
-      player2Id: player2,
-      score1: s1,
-      score2: s2,
-      eloBeforeP1: rA,
-      eloBeforeP2: rB,
-      eloAfterP1: elo.newRatingA,
-      eloAfterP2: elo.newRatingB,
-    };
-
-    const newRatings = { ...currentRatings };
-    newRatings[player1] = elo.newRatingA;
-    newRatings[player2] = elo.newRatingB;
-
-    const snapshot: RatingSnapshot = {
-      date,
-      matchId,
-      ratings: newRatings,
-    };
-
     try {
       setSaving(true);
       setMessage('');
-      await addMatch(match);
-      await addRatingSnapshot(snapshot);
-      setMessage(
-        `Матч сохранён! ${playerName(player1)} ${s1}:${s2} ${playerName(player2)} | ` +
-        `Elo: ${rA}→${elo.newRatingA}, ${rB}→${elo.newRatingB}`,
-      );
+
+      if (onAddMatches) {
+        const results = await onAddMatches([{ date, player1Id: player1, player2Id: player2, score1: s1, score2: s2 }]);
+        setMessage(`Матч сохранён! ${results[0] ?? ''}`);
+      } else {
+        // Fallback: direct insert (no date-aware positioning)
+        const rA = currentRatings[player1] ?? DEFAULT_INITIAL_RATING;
+        const rB = currentRatings[player2] ?? DEFAULT_INITIAL_RATING;
+        const elo = calculateNewRatings(rA, rB, s1, s2);
+        const maxOrder = matches.reduce((max, m) => Math.max(max, m.orderNumber ?? 0), 0);
+        const matchId = `${date}-${String(matches.length + 1).padStart(3, '0')}`;
+        await addMatch({
+          id: matchId, orderNumber: maxOrder + 1, date,
+          player1Id: player1, player2Id: player2, score1: s1, score2: s2,
+          eloBeforeP1: rA, eloBeforeP2: rB, eloAfterP1: elo.newRatingA, eloAfterP2: elo.newRatingB,
+        });
+        await addRatingSnapshot({ date, matchId, ratings: { ...currentRatings, [player1]: elo.newRatingA, [player2]: elo.newRatingB } });
+        setMessage(`Матч сохранён! Elo: ${rA}→${elo.newRatingA}, ${rB}→${elo.newRatingB}`);
+        onMatchAdded();
+      }
       setScore1('');
       setScore2('');
-      onMatchAdded();
     } catch (err) {
       if (!navigator.onLine) {
         addToQueue({ date, player1Id: player1, player2Id: player2, score1: s1, score2: s2 });
