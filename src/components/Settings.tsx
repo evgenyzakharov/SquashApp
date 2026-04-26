@@ -6,11 +6,13 @@ interface Props {
   allPlayers: Player[];
   onChanged: () => void;
   onClose: () => void;
+  onRecalculate: () => Promise<void>;
 }
 
-export function Settings({ allPlayers, onChanged, onClose }: Props) {
+export function Settings({ allPlayers, onChanged, onClose, onRecalculate }: Props) {
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
 
   const handleAdd = async () => {
     const name = newName.trim();
@@ -32,6 +34,18 @@ export function Settings({ allPlayers, onChanged, onClose }: Props) {
       alert(e instanceof Error ? e.message : 'Ошибка');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRecalculate = async () => {
+    if (!confirm('Пересчитать все рейтинги с нуля?\n\nЭто исправит Elo для всех матчей в правильном порядке. Операция может занять несколько секунд.')) return;
+    setRecalculating(true);
+    try {
+      await onRecalculate();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Ошибка пересчёта');
+    } finally {
+      setRecalculating(false);
     }
   };
 
@@ -73,6 +87,21 @@ export function Settings({ allPlayers, onChanged, onClose }: Props) {
             Добавить
           </button>
         </div>
+      </div>
+
+      <div className="settings-section">
+        <h4>Данные</h4>
+        <button
+          className="btn btn-danger btn-sm"
+          onClick={handleRecalculate}
+          disabled={recalculating || saving}
+          style={{ width: '100%' }}
+        >
+          {recalculating ? 'Пересчёт...' : '🔄 Пересчитать все рейтинги'}
+        </button>
+        <p style={{ fontSize: 12, color: '#888', marginTop: 6, marginBottom: 0 }}>
+          Пересчитывает Elo всех матчей с начала. Используй если рейтинги сбились.
+        </p>
       </div>
 
       <div className="settings-section">

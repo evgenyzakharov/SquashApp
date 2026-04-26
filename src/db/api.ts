@@ -130,6 +130,15 @@ export async function deleteSnapshotsByMatchIds(matchIds: string[]): Promise<voi
   if (error) throw error;
 }
 
+export async function deleteAllSnapshots(): Promise<void> {
+  // neq filter on a non-null column deletes all rows
+  const { error } = await supabase
+    .from('rating_snapshots')
+    .delete()
+    .neq('match_id', '');
+  if (error) throw error;
+}
+
 // ─── Helpers ─────────────────────────────────────────────
 
 function mapMatchRow(row: Record<string, unknown>): Match {

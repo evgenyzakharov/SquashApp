@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Player, Match, RatingSnapshot } from './core/types';
-import { fetchPlayers, fetchAllPlayers, fetchMatches, fetchRatingSnapshots, addMatch, addRatingSnapshot, deleteMatch, deleteSnapshotsByMatchIds, updateMatchElo, updateMatchOrder } from './db/api';
+import { fetchPlayers, fetchAllPlayers, fetchMatches, fetchRatingSnapshots, addMatch, addRatingSnapshot, deleteMatch, deleteSnapshotsByMatchIds, deleteAllSnapshots, updateMatchElo, updateMatchOrder } from './db/api';
 import { calculateNewRatings } from './core/elo';
 import { DEFAULT_INITIAL_RATING } from './core/types';
 import { getQueue, getQueueSize, clearQueue } from './core/offlineQueue';
@@ -213,13 +213,18 @@ export default function App() {
       await updateMatchOrder(m.id, (m.orderNumber ?? 0) + shift);
     }
 
-    // Get base ratings at insertion point
+    // Get base ratings at insertion point.
+    // Walk backwards from insertAfterIdx to find the nearest match that
+    // actually has a snapshot (orphan matches from failed inserts may not).
     let baseRatings: Record<string, number> = {};
     for (const p of allPlayers) baseRatings[p.id] = DEFAULT_INITIAL_RATING;
 
-    if (insertAfterIdx >= 0) {
-      const snap = snapshots.find((s) => s.matchId === matches[insertAfterIdx].id);
-      if (snap) baseRatings = { ...baseRatings, ...snap.ratings };
+    for (let si = insertAfterIdx; si >= 0; si--) {
+      const snap = snapshots.find((s) => s.matchId === matches[si].id);
+      if (snap) {
+        baseRatings = { ...baseRatings, ...snap.ratings };
+        break;
+      }
     }
 
     // Insert new matches with correct Elo
@@ -300,6 +305,53 @@ export default function App() {
   }
   }, [matches, allPlayers, snapshots, loadData]);
 
+  /**
+   * Full recalculation of all Elo ratings from scratch.
+   * Deletes all snapshots, recalculates the chain from match #1,
+   * updates eloBeforeP1/2 and eloAfterP1/2 for every match,
+   * and recreates all snapshots.
+   */
+  const handleRecalculate = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch fresh data directly from DB
+      const [freshPlayers, freshMatches] = await Promise.all([
+        fetchAllPlayers(),
+        fetchMatches(),
+      ]);
+
+      // Base ratings: all players start at DEFAULT_INITIAL_RATING
+      const baseRatings: Record<string, number> = {};
+      for (const p of freshPlayers) baseRatings[p.id] = DEFAULT_INITIAL_RATING;
+
+      // Recalculate the full chain
+      const { updatedMatches, newSnapshots } = recalculateFrom(1, freshMatches, baseRatings);
+
+      // Wipe all existing snapshots
+      await deleteAllSnapshots();
+
+      // Write updated Elo for every match
+      for (const um of updatedMatches) {
+        await updateMatchElo(um);
+      }
+
+      // Recreate all snapshots in order
+      for (const ns of newSnapshots) {
+        await addRatingSnapshot(ns);
+      }
+
+      await loadData();
+    } catch (err) {
+      const msg = err instanceof Error
+        ? err.message
+        : (err as { message?: string })?.message ?? JSON.stringify(err);
+      setError(`Ошибка пересчёта: ${msg}`);
+      setLoading(false);
+    }
+  }, [loadData]);
+
   const tabs: { key: Tab; label: string }[] = [
     { key: 'dashboard', label: 'Рейтинг' },
     { key: 'history', label: 'История' },
@@ -336,6 +388,7 @@ export default function App() {
             allPlayers={allPlayers}
             onChanged={loadData}
             onClose={() => setShowSettings(false)}
+            onRecalculate={handleRecalculate}
           />
         )}
         <nav className="tabs">
