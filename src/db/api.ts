@@ -131,12 +131,28 @@ export async function deleteSnapshotsByMatchIds(matchIds: string[]): Promise<voi
 }
 
 export async function deleteAllSnapshots(): Promise<void> {
-  // neq filter on a non-null column deletes all rows
+  // gt('id', 0) reliably matches every row — SERIAL ids always start at 1
   const { error } = await supabase
     .from('rating_snapshots')
     .delete()
-    .neq('match_id', '');
+    .gt('id', 0);
   if (error) throw error;
+}
+
+export async function bulkAddSnapshots(snapshots: RatingSnapshot[]): Promise<void> {
+  if (snapshots.length === 0) return;
+  const rows = snapshots.map((s) => ({
+    date: s.date,
+    match_id: s.matchId,
+    ratings: s.ratings,
+  }));
+  // Insert in chunks of 200 to avoid request size limits
+  for (let i = 0; i < rows.length; i += 200) {
+    const { error } = await supabase
+      .from('rating_snapshots')
+      .insert(rows.slice(i, i + 200));
+    if (error) throw error;
+  }
 }
 
 // ─── Helpers ─────────────────────────────────────────────

@@ -78,10 +78,10 @@ describe('calculatePlayerStats', () => {
   });
 
   it('gets peak rating and date within last 50 days', () => {
-    // Test data dates are old (2025-01-01), so peak50 falls back to current rating
+    // Test data dates are old (2025-01-01), so peak50 falls back to last 50 player-snapshots
     const stats = calculatePlayerStats(players[0], matches, snapshots);
-    expect(stats.peakRating).toBe(999); // current rating, since no snapshots in last 50 days
-    expect(stats.peakDate).toBeNull();
+    expect(stats.peakRating).toBe(1016); // peak from fallback window (alice was 1016 in m1/m2)
+    expect(stats.peakDate).toBe('2025-01-01'); // first snapshot where alice hit 1016
 
     // With recent dates, peak50 should find the max
     const today = new Date().toISOString().split('T')[0];

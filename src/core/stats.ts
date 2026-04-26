@@ -72,7 +72,9 @@ function getCurrentRating(playerId: string, snapshots: RatingSnapshot[]): number
 
 /**
  * Get peak rating and date for a player within the last 50 days.
- * Unlike all-time peak, this allows values below the initial rating.
+ * If there are no snapshots in the last 50 days, uses the last 50 snapshots
+ * that include this player as a fallback window.
+ * Allows values below the initial rating.
  */
 function getPeakRatingWithDate(playerId: string, snapshots: RatingSnapshot[]): { peakRating: number; peakDate: string | null } {
   const now = new Date();
@@ -92,8 +94,23 @@ function getPeakRatingWithDate(playerId: string, snapshots: RatingSnapshot[]): {
     }
   }
 
+  if (peak !== -Infinity) {
+    return { peakRating: peak, peakDate };
+  }
+
+  // No snapshots in the 90-day window — use the most recent 50 snapshots
+  // that actually contain this player's rating as a fallback window
+  const playerSnaps = snapshots.filter((s) => s.ratings[playerId] !== undefined);
+  const fallbackWindow = playerSnaps.slice(-50);
+  for (const snap of fallbackWindow) {
+    const r = snap.ratings[playerId];
+    if (r !== undefined && r > peak) {
+      peak = r;
+      peakDate = snap.date;
+    }
+  }
+
   if (peak === -Infinity) {
-    // No snapshots in last 50 days — fall back to current or default
     return { peakRating: getCurrentRating(playerId, snapshots), peakDate: null };
   }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Player, Match, RatingSnapshot } from './core/types';
-import { fetchPlayers, fetchAllPlayers, fetchMatches, fetchRatingSnapshots, addMatch, addRatingSnapshot, deleteMatch, deleteSnapshotsByMatchIds, deleteAllSnapshots, updateMatchElo, updateMatchOrder } from './db/api';
+import { fetchPlayers, fetchAllPlayers, fetchMatches, fetchRatingSnapshots, addMatch, addRatingSnapshot, deleteMatch, deleteSnapshotsByMatchIds, deleteAllSnapshots, bulkAddSnapshots, updateMatchElo, updateMatchOrder } from './db/api';
 import { calculateNewRatings } from './core/elo';
 import { DEFAULT_INITIAL_RATING } from './core/types';
 import { getQueue, getQueueSize, clearQueue } from './core/offlineQueue';
@@ -332,15 +332,13 @@ export default function App() {
       // Wipe all existing snapshots
       await deleteAllSnapshots();
 
-      // Write updated Elo for every match
+      // Write updated Elo for every match (sequentially to keep order)
       for (const um of updatedMatches) {
         await updateMatchElo(um);
       }
 
-      // Recreate all snapshots in order
-      for (const ns of newSnapshots) {
-        await addRatingSnapshot(ns);
-      }
+      // Recreate all snapshots in one bulk call
+      await bulkAddSnapshots(newSnapshots);
 
       await loadData();
     } catch (err) {
