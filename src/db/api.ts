@@ -89,6 +89,27 @@ export async function updateMatchElo(match: Match): Promise<void> {
   if (error) throw error;
 }
 
+/** Update Elo fields for many matches in one bulk upsert (chunks of 100). */
+export async function bulkUpdateMatchElo(matches: Match[]): Promise<void> {
+  if (matches.length === 0) return;
+  for (let i = 0; i < matches.length; i += 100) {
+    const chunk = matches.slice(i, i + 100);
+    const { error } = await supabase
+      .from('matches')
+      .upsert(
+        chunk.map((m) => ({
+          id: m.id,
+          elo_before_p1: m.eloBeforeP1,
+          elo_before_p2: m.eloBeforeP2,
+          elo_after_p1: m.eloAfterP1,
+          elo_after_p2: m.eloAfterP2,
+        })),
+        { onConflict: 'id' },
+      );
+    if (error) throw error;
+  }
+}
+
 export async function updateMatchOrder(id: string, orderNumber: number): Promise<void> {
   const { error } = await supabase
     .from('matches')
