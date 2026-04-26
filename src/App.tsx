@@ -73,7 +73,6 @@ export default function App() {
         for (const [id, r] of Object.entries(latest.ratings)) ratings[id] = r;
       }
       let maxOrder = m.reduce((max, mt) => Math.max(max, mt.orderNumber ?? 0), 0);
-      let matchCount = m.length;
 
       for (const om of queue) {
         const rA = ratings[om.player1Id] ?? DEFAULT_INITIAL_RATING;
@@ -81,8 +80,7 @@ export default function App() {
         const elo = calculateNewRatings(rA, rB, om.score1, om.score2);
 
         maxOrder++;
-        matchCount++;
-        const matchId = `${om.date}-${String(matchCount).padStart(3, '0')}`;
+        const matchId = `${om.date}-${String(maxOrder).padStart(5, '0')}`;
 
         await addMatch({
           id: matchId,
@@ -187,6 +185,7 @@ export default function App() {
     rawMatches: { date: string; player1Id: string; player2Id: string; score1: number; score2: number }[],
   ): Promise<string[]> => {
     if (rawMatches.length === 0) return [];
+    try {
 
     const date = rawMatches[0].date;
 
@@ -226,13 +225,12 @@ export default function App() {
     // Insert new matches with correct Elo
     const ratings = { ...baseRatings };
     const results: string[] = [];
-    let matchCount = matches.length;
 
     for (let i = 0; i < rawMatches.length; i++) {
       const rm = rawMatches[i];
       const orderNum = insertAfterOrder + i + 1;
-      matchCount++;
-      const matchId = `${rm.date}-${String(matchCount).padStart(3, '0')}`;
+      // Use global orderNum as ID suffix — guaranteed unique across all matches
+      const matchId = `${rm.date}-${String(orderNum).padStart(5, '0')}`;
 
       const rA = ratings[rm.player1Id] ?? DEFAULT_INITIAL_RATING;
       const rB = ratings[rm.player2Id] ?? DEFAULT_INITIAL_RATING;
@@ -289,6 +287,17 @@ export default function App() {
 
     await loadData();
     return results;
+  } catch (err) {
+    // Refresh state so in-memory matches/snapshots stay in sync with DB
+    // even if the operation partially succeeded before failing.
+    try { await loadData(); } catch { /* ignore secondary error */ }
+    const msg = err instanceof Error
+      ? err.message
+      : (err as { message?: string })?.message
+        ?? (err as { error?: string })?.error
+        ?? JSON.stringify(err);
+    throw new Error(msg);
+  }
   }, [matches, allPlayers, snapshots, loadData]);
 
   const tabs: { key: Tab; label: string }[] = [

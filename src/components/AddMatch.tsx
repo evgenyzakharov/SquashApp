@@ -165,7 +165,11 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
         setBulkText('');
         onOfflineChange?.();
       } else {
-        setBulkResults([`Ошибка: ${err instanceof Error ? err.message : 'Unknown'}`]);
+        const msg = err instanceof Error
+        ? err.message
+        : (err as { message?: string })?.message
+          ?? JSON.stringify(err);
+      setBulkResults([`Ошибка: ${msg}`]);
       }
     } finally {
       setSaving(false);
@@ -219,7 +223,11 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
         setScore2('');
         onOfflineChange?.();
       } else {
-        setMessage(`Ошибка: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        const msg = err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message
+            ?? JSON.stringify(err);
+        setMessage(`Ошибка: ${msg}`);
       }
     } finally {
       setSaving(false);
