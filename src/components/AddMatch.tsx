@@ -5,6 +5,20 @@ import { DEFAULT_INITIAL_RATING } from '../core/types';
 import { addMatch, addRatingSnapshot } from '../db/api';
 import { addToQueue } from '../core/offlineQueue';
 
+/** Returns true when the error is caused by a network problem rather than
+ *  a server-side or validation error. Covers both navigator.onLine=false and
+ *  the case where the browser thinks it's online but the request fails
+ *  (weak signal, captive portal, etc.). */
+function isNetworkError(err: unknown): boolean {
+  if (!navigator.onLine) return true;
+  if (err instanceof TypeError) return true; // "Failed to fetch" / "NetworkError"
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return msg.includes('failed to fetch')
+    || msg.includes('network')
+    || msg.includes('networkerror')
+    || msg.includes('fetch');
+}
+
 interface ParsedMatch {
   player1Name: string;
   player2Name: string;
@@ -157,7 +171,7 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
       }
       setBulkText('');
     } catch (err) {
-      if (!navigator.onLine) {
+      if (isNetworkError(err)) {
         for (const rm of rawMatches) {
           addToQueue(rm);
         }
@@ -166,10 +180,10 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
         onOfflineChange?.();
       } else {
         const msg = err instanceof Error
-        ? err.message
-        : (err as { message?: string })?.message
-          ?? JSON.stringify(err);
-      setBulkResults([`Ошибка: ${msg}`]);
+          ? err.message
+          : (err as { message?: string })?.message
+            ?? JSON.stringify(err);
+        setBulkResults([`Ошибка: ${msg}`]);
       }
     } finally {
       setSaving(false);
@@ -216,7 +230,7 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
       setScore1('');
       setScore2('');
     } catch (err) {
-      if (!navigator.onLine) {
+      if (isNetworkError(err)) {
         addToQueue({ date, player1Id: player1, player2Id: player2, score1: s1, score2: s2 });
         setMessage('Сохранено офлайн (будет синхронизировано при подключении)');
         setScore1('');

@@ -293,9 +293,12 @@ export default function App() {
     await loadData();
     return results;
   } catch (err) {
-    // Refresh state so in-memory matches/snapshots stay in sync with DB
-    // even if the operation partially succeeded before failing.
-    try { await loadData(); } catch { /* ignore secondary error */ }
+    // Only refresh state when online — calling loadData() while offline
+    // sets the app-level error flag and hides the entire UI, preventing
+    // AddMatch from saving to the offline queue.
+    if (navigator.onLine) {
+      try { await loadData(); } catch { /* ignore secondary error */ }
+    }
     const msg = err instanceof Error
       ? err.message
       : (err as { message?: string })?.message
