@@ -21,46 +21,44 @@ function PlayerSelectCard({ label, players, value, exclude, currentRatings, onCh
   const available = players.filter((p) => p.id !== exclude);
 
   return (
-    <div className="form-group">
+    <div className="form-group" style={{ minWidth: 0 }}>
       <label>{label}</label>
       <div style={{ position: 'relative' }}>
         {/* Visual card */}
         <div style={{
           border: `1.5px solid ${selected ? '#3b82f6' : '#ddd'}`,
           borderRadius: 10,
-          padding: '8px 12px',
+          padding: '8px 10px',
           display: 'flex',
           alignItems: 'center',
-          gap: 10,
+          gap: 8,
           background: selected ? '#f0f6ff' : '#fff',
-          minHeight: 58,
-          pointerEvents: 'none', // clicks go through to the select below
+          minHeight: 56,
+          overflow: 'hidden',
+          pointerEvents: 'none',
         }}>
           {selected ? (
             <>
               {selected.photoUrl
                 ? <img src={selected.photoUrl} alt={selected.name}
-                    style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                : <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, flexShrink: 0, color: '#1d4ed8' }}>
+                    style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                : <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, flexShrink: 0, color: '#1d4ed8' }}>
                     {selected.name[0].toUpperCase()}
                   </div>
               }
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {selected.name}
-                  {selected.hand && <span style={{ fontSize: 12, color: '#888', marginLeft: 6, fontWeight: 400 }}>
-                    {selected.hand === 'right' ? '🏸 прав.' : '🏸 лев.'}
-                  </span>}
                 </div>
-                <div style={{ fontSize: 13, color: '#3b82f6', fontWeight: 600 }}>
+                <div style={{ fontSize: 12, color: '#3b82f6', fontWeight: 600 }}>
                   Elo {currentRatings[selected.id] ?? DEFAULT_INITIAL_RATING}
                 </div>
               </div>
             </>
           ) : (
-            <span style={{ color: '#aaa', fontSize: 14 }}>Выберите игрока...</span>
+            <span style={{ color: '#aaa', fontSize: 13 }}>Выберите...</span>
           )}
-          <span style={{ color: '#aaa', fontSize: 12, flexShrink: 0 }}>▼</span>
+          <span style={{ color: '#aaa', fontSize: 11, flexShrink: 0 }}>▼</span>
         </div>
 
         {/* Native select — transparent overlay, handles the actual tap/selection */}
