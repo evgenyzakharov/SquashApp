@@ -83,14 +83,6 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
     return latest.ratings[player.id] ?? DEFAULT_INITIAL_RATING;
   }, [snapshots, player.id]);
 
-  // Elo change from last match
-  const lastEloChange = useMemo(() => {
-    if (playerMatches.length === 0) return null;
-    const last = playerMatches[playerMatches.length - 1];
-    return last.player1Id === player.id
-      ? last.eloAfterP1 - last.eloBeforeP1
-      : last.eloAfterP2 - last.eloBeforeP2;
-  }, [playerMatches, player.id]);
 
   // Win/loss stats
   const { games, wins, pointsWon, pointsLost } = useMemo(() => {
