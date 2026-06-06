@@ -281,10 +281,10 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20 }}>
         {[
           { label: 'Побед', value: wins },
-          { label: 'Очки за', value: pointsWon },
-          { label: 'Очки против', value: pointsLost },
-          { label: 'Ø очки за', value: avgPointsWon.toFixed(1) },
-          { label: 'Ø очки против', value: avgPointsLost.toFixed(1) },
+          { label: 'Очки выигр.', value: pointsWon },
+          { label: 'Очки проигр.', value: pointsLost },
+          { label: 'Ø выигр.', value: avgPointsWon.toFixed(1) },
+          { label: 'Ø проигр.', value: avgPointsLost.toFixed(1) },
           { label: '% розыгр.', value: `${rallyWinPct}%` },
         ].map(c => (
           <div key={c.label} style={{ background: '#f8fafc', borderRadius: 8, padding: '8px 10px', border: '1px solid #e5e7eb', textAlign: 'center' }}>

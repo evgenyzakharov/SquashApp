@@ -35,7 +35,7 @@ export function Dashboard({ players, matches, snapshots, onPlayerClick }: Props)
         <table>
           <thead>
             <tr>
-              <th className="col-desktop">#</th>
+              <th>#</th>
               <th>Игрок</th>
               <th>Рейтинг</th>
               <th className="col-desktop">Пик30</th>
@@ -49,7 +49,7 @@ export function Dashboard({ players, matches, snapshots, onPlayerClick }: Props)
           <tbody>
             {stats.map((s, i) => (
               <tr key={s.playerId}>
-                <td className="col-desktop">{i + 1}</td>
+                <td>{i + 1}</td>
                 <td>
                   <button
                     onClick={() => onPlayerClick(s.playerId)}
