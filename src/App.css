@@ -107,7 +107,6 @@ table {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
-  min-width: 600px;
 }
 
 th, td {
@@ -430,6 +429,13 @@ tr:hover {
 .btn-delete-match:disabled {
   opacity: 0.2;
   cursor: wait;
+}
+
+/* ─── Desktop-only columns (hidden on mobile) ───────────── */
+@media (max-width: 640px) {
+  .col-desktop {
+    display: none;
+  }
 }
 
 /* ─── Mobile ─────────────────────────────── */

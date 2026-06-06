@@ -108,6 +108,9 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
 
   const winPercent = games > 0 ? (wins / games * 100).toFixed(0) : '0';
   const avgDiff = games > 0 ? ((pointsWon - pointsLost) / games) : 0;
+  const avgPointsWon = games > 0 ? pointsWon / games : 0;
+  const avgPointsLost = games > 0 ? pointsLost / games : 0;
+  const rallyWinPct = (pointsWon + pointsLost) > 0 ? (pointsWon / (pointsWon + pointsLost) * 100).toFixed(0) : '0';
 
   // Пик30 — peak over last 30 player matches (consistent with sparkline)
   const { peakRating, peakDate } = useMemo(() => {
@@ -270,6 +273,23 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
             <div style={{ fontSize: 20, fontWeight: 700, color: (c as { color?: string }).color ?? '#111' }}>{c.value}</div>
             <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{c.label}</div>
             {(c as { sub?: string | null }).sub && <div style={{ fontSize: 10, color: '#aaa' }}>{(c as { sub?: string | null }).sub}</div>}
+          </div>
+        ))}
+      </div>
+
+      {/* Secondary stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20 }}>
+        {[
+          { label: 'Побед', value: wins },
+          { label: 'Очки за', value: pointsWon },
+          { label: 'Очки против', value: pointsLost },
+          { label: 'Ø очки за', value: avgPointsWon.toFixed(1) },
+          { label: 'Ø очки против', value: avgPointsLost.toFixed(1) },
+          { label: '% розыгр.', value: `${rallyWinPct}%` },
+        ].map(c => (
+          <div key={c.label} style={{ background: '#f8fafc', borderRadius: 8, padding: '8px 10px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>{c.value}</div>
+            <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{c.label}</div>
           </div>
         ))}
       </div>

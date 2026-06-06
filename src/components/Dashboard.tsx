@@ -35,26 +35,21 @@ export function Dashboard({ players, matches, snapshots, onPlayerClick }: Props)
         <table>
           <thead>
             <tr>
-              <th>#</th>
+              <th className="col-desktop">#</th>
               <th>Игрок</th>
               <th>Рейтинг</th>
-              <th>Пик30</th>
-              <th>Дата пика</th>
-              <th>Игр</th>
-              <th>Побед</th>
+              <th className="col-desktop">Пик30</th>
+              <th className="col-desktop">Дата пика</th>
+              <th className="col-desktop">Игр</th>
               <th>% Побед</th>
-              <th>Очк.+</th>
-              <th>Очк.-</th>
-              <th>Ø очк.+</th>
-              <th>Ø очк.-</th>
-              <th>Ø разн.</th>
+              <th className="col-desktop">Ø разн.</th>
               <th>% розыгр.</th>
             </tr>
           </thead>
           <tbody>
             {stats.map((s, i) => (
               <tr key={s.playerId}>
-                <td>{i + 1}</td>
+                <td className="col-desktop">{i + 1}</td>
                 <td>
                   <button
                     onClick={() => onPlayerClick(s.playerId)}
@@ -64,16 +59,11 @@ export function Dashboard({ players, matches, snapshots, onPlayerClick }: Props)
                   </button>
                 </td>
                 <td><strong>{s.currentRating}</strong></td>
-                <td>{s.peakRating}</td>
-                <td>{s.peakDate ? s.peakDate.slice(8, 10) + '.' + s.peakDate.slice(5, 7) : '—'}</td>
-                <td>{s.games}</td>
-                <td>{s.wins}</td>
+                <td className="col-desktop">{s.peakRating}</td>
+                <td className="col-desktop">{s.peakDate ? s.peakDate.slice(8, 10) + '.' + s.peakDate.slice(5, 7) : '—'}</td>
+                <td className="col-desktop">{s.games}</td>
                 <td>{(s.winPercent * 100).toFixed(0)}%</td>
-                <td>{s.pointsWon}</td>
-                <td>{s.pointsLost}</td>
-                <td>{s.avgPointsWon.toFixed(1)}</td>
-                <td>{s.avgPointsLost.toFixed(1)}</td>
-                <td className={s.avgDifference >= 0 ? 'stat-positive' : 'stat-negative'}>
+                <td className={`col-desktop ${s.avgDifference >= 0 ? 'stat-positive' : 'stat-negative'}`}>
                   {s.avgDifference >= 0 ? '+' : ''}{s.avgDifference.toFixed(2)}
                 </td>
                 <td>{(s.rallyWinPercent * 100).toFixed(0)}%</td>
