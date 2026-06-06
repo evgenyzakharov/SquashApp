@@ -16,16 +16,19 @@ interface Props {
 function RatingSparkline({ ratings }: { ratings: number[] }) {
   if (ratings.length < 2) return null;
 
-  const W = 260;
+  // Internal coordinate space — SVG renders at width:100%
+  const W = 1000;
   const H = 56;
-  const PAD = 3;
+  const PAD = 6;
 
   const min = Math.min(...ratings);
   const max = Math.max(...ratings);
-  const range = max - min || 1;
+  const range = max - min;
 
   const toX = (i: number) => PAD + (i / (ratings.length - 1)) * (W - PAD * 2);
-  const toY = (v: number) => PAD + (1 - (v - min) / range) * (H - PAD * 2);
+  // When range=0 (flat rating) centre the line vertically instead of bottom
+  const toY = (v: number) =>
+    range === 0 ? H / 2 : PAD + (1 - (v - min) / range) * (H - PAD * 2);
 
   const pts = ratings.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`);
   const polyline = pts.join(' ');
@@ -36,21 +39,27 @@ function RatingSparkline({ ratings }: { ratings: number[] }) {
   const color = last >= first ? '#22c55e' : '#ef4444';
 
   return (
-    <div>
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+    <div style={{ width: '100%' }}>
+      <svg
+        width="100%"
+        height={H}
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        style={{ display: 'block' }}
+      >
         <defs>
-          <linearGradient id={`sg-${W}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="spark-grad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity="0.25" />
             <stop offset="100%" stopColor={color} stopOpacity="0.02" />
           </linearGradient>
         </defs>
-        <polygon points={fill} fill={`url(#sg-${W})`} />
-        <polyline points={polyline} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-        <circle cx={toX(ratings.length - 1)} cy={toY(last)} r="3.5" fill={color} />
+        <polygon points={fill} fill="url(#spark-grad)" />
+        <polyline points={polyline} fill="none" stroke={color} strokeWidth="12" strokeLinejoin="round" />
+        <circle cx={toX(ratings.length - 1)} cy={toY(last)} r="20" fill={color} />
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#999', marginTop: 2 }}>
         <span>{Math.round(min)}</span>
-        <span>{Math.round(max)}</span>
+        {range > 0 && <span>{Math.round(max)}</span>}
       </div>
     </div>
   );
