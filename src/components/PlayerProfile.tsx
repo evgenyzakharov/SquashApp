@@ -247,11 +247,6 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 22, fontWeight: 700, color: '#1d4ed8' }}>◆ {currentRating}</span>
-            {lastEloChange !== null && (
-              <span style={{ fontSize: 14, color: lastEloChange >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
-                {fmtElo(lastEloChange)} (посл. матч)
-              </span>
-            )}
           </div>
           {player.hand && (
             <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>
@@ -412,11 +407,11 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
                 const pct = total > 0 ? wins / total : 0;
                 return (
                   <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 90, fontSize: 14, fontWeight: 500, flexShrink: 0 }}>{playerName(id)}</div>
-                    <div style={{ flex: 1, height: 10, background: '#e5e7eb', borderRadius: 5, overflow: 'hidden' }}>
+                    <div style={{ width: 80, fontSize: 14, fontWeight: 500, flexShrink: 0 }}>{playerName(id)}</div>
+                    <div style={{ flex: 1, minWidth: 0, height: 10, background: '#e5e7eb', borderRadius: 5, overflow: 'hidden' }}>
                       <div style={{ width: `${pct * 100}%`, height: '100%', background: pct >= 0.5 ? '#22c55e' : '#ef4444', borderRadius: 5, transition: 'width .3s' }} />
                     </div>
-                    <div style={{ width: 70, fontSize: 13, color: '#555', textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ flexShrink: 0, fontSize: 13, color: '#555', textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {wins}–{losses} · {Math.round(pct * 100)}%
                     </div>
                   </div>
