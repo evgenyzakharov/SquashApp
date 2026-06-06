@@ -297,7 +297,15 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
       {/* Sparkline */}
       {ratingHistory.length >= 2 && (
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>📈 Динамика рейтинга (посл. {ratingHistory.length - 1} матчей)</div>
+          {(() => {
+            const min = Math.min(...ratingHistory);
+            const max = Math.max(...ratingHistory);
+            return (
+              <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>
+                📈 Динамика рейтинга (посл. {ratingHistory.length - 1} матчей · min: {min} · max: {max})
+              </div>
+            );
+          })()}
           <RatingSparkline ratings={ratingHistory} />
         </div>
       )}
