@@ -58,8 +58,8 @@ function RatingSparkline({ ratings }: { ratings: number[] }) {
         <circle cx={toX(ratings.length - 1)} cy={toY(last)} r="20" fill={color} />
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#999', marginTop: 2 }}>
-        <span>{Math.round(min)}</span>
-        {range > 0 && <span>{Math.round(max)}</span>}
+        <span>{Math.round(ratings[0])}</span>
+        <span>{Math.round(ratings[ratings.length - 1])}</span>
       </div>
     </div>
   );
