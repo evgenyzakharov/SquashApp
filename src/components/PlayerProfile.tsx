@@ -201,13 +201,19 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
     return worst;
   }, [h2hStats]);
 
-  // Rating history for sparkline
+  // Rating history for sparkline — last 30 of THIS player's matches,
+  // using eloAfter from each match (not snapshots, which include all players)
   const ratingHistory = useMemo(() => {
-    return snapshots
-      .filter(s => s.ratings[player.id] !== undefined)
-      .map(s => s.ratings[player.id])
-      .slice(-30);
-  }, [snapshots, player.id]);
+    const last30 = playerMatches.slice(-30);
+    if (last30.length === 0) return [];
+    // Prepend the rating before the first shown match so the chart starts from context
+    const first = last30[0];
+    const startRating = first.player1Id === player.id ? first.eloBeforeP1 : first.eloBeforeP2;
+    const afterRatings = last30.map(m =>
+      m.player1Id === player.id ? m.eloAfterP1 : m.eloAfterP2,
+    );
+    return [startRating, ...afterRatings];
+  }, [playerMatches, player.id]);
 
   // Last 10 matches (newest first)
   const lastMatches = useMemo(() => [...playerMatches].reverse().slice(0, 10), [playerMatches]);
@@ -302,7 +308,7 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
       {/* Sparkline */}
       {ratingHistory.length >= 2 && (
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>📈 Динамика рейтинга (посл. {ratingHistory.length} матчей)</div>
+          <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>📈 Динамика рейтинга (посл. {ratingHistory.length - 1} матчей)</div>
           <RatingSparkline ratings={ratingHistory} />
         </div>
       )}
