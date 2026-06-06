@@ -55,7 +55,9 @@ export async function uploadPlayerPhoto(playerId: string, file: File): Promise<s
     .upload(path, file, { upsert: true, contentType: file.type });
   if (error) throw error;
   const { data } = supabase.storage.from('player-photos').getPublicUrl(path);
-  return data.publicUrl;
+  // Append timestamp so the browser doesn't serve the old cached photo
+  // when the same path is re-uploaded with a new image.
+  return `${data.publicUrl}?t=${Date.now()}`;
 }
 
 export async function hidePlayer(id: string): Promise<void> {
