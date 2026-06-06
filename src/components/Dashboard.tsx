@@ -6,9 +6,10 @@ interface Props {
   players: Player[];
   matches: Match[];
   snapshots: RatingSnapshot[];
+  onPlayerClick: (playerId: string) => void;
 }
 
-export function Dashboard({ players, matches, snapshots }: Props) {
+export function Dashboard({ players, matches, snapshots, onPlayerClick }: Props) {
   const stats = useMemo(
     () =>
       calculateAllStats(players, matches, snapshots).sort(
@@ -54,7 +55,14 @@ export function Dashboard({ players, matches, snapshots }: Props) {
             {stats.map((s, i) => (
               <tr key={s.playerId}>
                 <td>{i + 1}</td>
-                <td><strong>{playerNames.get(s.playerId) ?? s.playerId}</strong></td>
+                <td>
+                  <button
+                    onClick={() => onPlayerClick(s.playerId)}
+                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 700, color: 'inherit', fontSize: 'inherit', textDecoration: 'underline dotted' }}
+                  >
+                    {playerNames.get(s.playerId) ?? s.playerId}
+                  </button>
+                </td>
                 <td><strong>{s.currentRating}</strong></td>
                 <td>{s.peakRating}</td>
                 <td>{s.peakDate ? s.peakDate.slice(8, 10) + '.' + s.peakDate.slice(5, 7) : '—'}</td>

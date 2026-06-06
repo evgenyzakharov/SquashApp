@@ -2,6 +2,8 @@ export interface Player {
   id: string;
   name: string;
   hidden?: boolean;
+  photoUrl?: string;
+  hand?: 'right' | 'left';
 }
 
 export interface Match {

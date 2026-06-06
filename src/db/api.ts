@@ -3,28 +3,59 @@ import type { Player, Match, RatingSnapshot } from '../core/types';
 
 // ─── Players ─────────────────────────────────────────────
 
+function mapPlayerRow(row: Record<string, unknown>): Player {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    hidden: (row.hidden as boolean) ?? undefined,
+    photoUrl: (row.photo_url as string) ?? undefined,
+    hand: (row.hand as 'right' | 'left') ?? undefined,
+  };
+}
+
 export async function fetchPlayers(): Promise<Player[]> {
   const { data, error } = await supabase
     .from('players')
-    .select('id, name, hidden')
+    .select('id, name, hidden, photo_url, hand')
     .or('hidden.is.null,hidden.eq.false')
     .order('name');
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map(mapPlayerRow);
 }
 
 export async function fetchAllPlayers(): Promise<Player[]> {
   const { data, error } = await supabase
     .from('players')
-    .select('id, name, hidden')
+    .select('id, name, hidden, photo_url, hand')
     .order('name');
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map(mapPlayerRow);
 }
 
 export async function addPlayer(player: Player): Promise<void> {
-  const { error } = await supabase.from('players').insert(player);
+  const { error } = await supabase.from('players').insert({ id: player.id, name: player.name });
   if (error) throw error;
+}
+
+export async function updatePlayer(
+  id: string,
+  fields: { photoUrl?: string | null; hand?: 'right' | 'left' | null },
+): Promise<void> {
+  const update: Record<string, unknown> = {};
+  if ('photoUrl' in fields) update.photo_url = fields.photoUrl ?? null;
+  if ('hand' in fields) update.hand = fields.hand ?? null;
+  const { error } = await supabase.from('players').update(update).eq('id', id);
+  if (error) throw error;
+}
+
+export async function uploadPlayerPhoto(playerId: string, file: File): Promise<string> {
+  const path = `${playerId}/avatar`;
+  const { error } = await supabase.storage
+    .from('player-photos')
+    .upload(path, file, { upsert: true, contentType: file.type });
+  if (error) throw error;
+  const { data } = supabase.storage.from('player-photos').getPublicUrl(path);
+  return data.publicUrl;
 }
 
 export async function hidePlayer(id: string): Promise<void> {

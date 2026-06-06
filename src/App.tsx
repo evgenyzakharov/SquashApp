@@ -9,11 +9,11 @@ import { Dashboard } from './components/Dashboard';
 import { MatchHistory } from './components/MatchHistory';
 import { AddMatch } from './components/AddMatch';
 import { Scheduler } from './components/Scheduler';
-import { HeadToHead } from './components/HeadToHead';
 import { Settings } from './components/Settings';
+import { PlayerProfile } from './components/PlayerProfile';
 import './App.css';
 
-type Tab = 'dashboard' | 'history' | 'add' | 'scheduler' | 'h2h';
+type Tab = 'dashboard' | 'history' | 'add' | 'scheduler';
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -24,6 +24,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [offlineCount, setOfflineCount] = useState(getQueueSize());
   const [syncing, setSyncing] = useState(false);
 
@@ -355,7 +356,6 @@ export default function App() {
     { key: 'dashboard', label: 'Рейтинг' },
     { key: 'history', label: 'История' },
     { key: 'add', label: '+ Матч' },
-    { key: 'h2h', label: 'H2H' },
     { key: 'scheduler', label: 'Расписание' },
   ];
 
@@ -408,27 +408,52 @@ export default function App() {
         {error && <div className="error">Ошибка: {error}</div>}
         {!loading && !error && (
           <>
-            {tab === 'dashboard' && (
-              <Dashboard players={players} matches={matches} snapshots={snapshots} />
-            )}
-            {tab === 'history' && (
-              <MatchHistory players={allPlayers} matches={matches} onDeleteMatch={handleDeleteMatch} />
-            )}
-            {tab === 'add' && (
-              <AddMatch
-                players={players}
-                matches={matches}
-                snapshots={snapshots}
-                onMatchAdded={loadData}
-                onOfflineChange={refreshOfflineCount}
-                onAddMatches={handleAddMatches}
-              />
-            )}
-            {tab === 'h2h' && (
-              <HeadToHead players={allPlayers} matches={matches} snapshots={snapshots} />
-            )}
-            {tab === 'scheduler' && (
-              <Scheduler players={players} snapshots={snapshots} />
+            {selectedPlayerId ? (
+              (() => {
+                const p = allPlayers.find(pl => pl.id === selectedPlayerId);
+                if (!p) { setSelectedPlayerId(null); return null; }
+                const statsAll = [...players]
+                  .map(pl => ({ id: pl.id, rating: snapshots.length > 0 ? (snapshots[snapshots.length - 1].ratings[pl.id] ?? 1000) : 1000 }))
+                  .sort((a, b) => b.rating - a.rating);
+                const rank = statsAll.findIndex(s => s.id === selectedPlayerId) + 1;
+                return (
+                  <PlayerProfile
+                    player={p}
+                    allPlayers={allPlayers}
+                    matches={matches}
+                    snapshots={snapshots}
+                    rank={rank || 1}
+                    onBack={() => setSelectedPlayerId(null)}
+                  />
+                );
+              })()
+            ) : (
+              <>
+                {tab === 'dashboard' && (
+                  <Dashboard
+                    players={players}
+                    matches={matches}
+                    snapshots={snapshots}
+                    onPlayerClick={setSelectedPlayerId}
+                  />
+                )}
+                {tab === 'history' && (
+                  <MatchHistory players={allPlayers} matches={matches} onDeleteMatch={handleDeleteMatch} />
+                )}
+                {tab === 'add' && (
+                  <AddMatch
+                    players={players}
+                    matches={matches}
+                    snapshots={snapshots}
+                    onMatchAdded={loadData}
+                    onOfflineChange={refreshOfflineCount}
+                    onAddMatches={handleAddMatches}
+                  />
+                )}
+                {tab === 'scheduler' && (
+                  <Scheduler players={players} snapshots={snapshots} />
+                )}
+              </>
             )}
           </>
         )}
