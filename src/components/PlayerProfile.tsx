@@ -162,20 +162,32 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
     return map;
   }, [playerMatches, player.id]);
 
-  // Favorite opponent (most wins)
+  // Favorite opponent — highest win%, tiebreak: most total matches
   const favorite = useMemo(() => {
     let best: { id: string; wins: number; losses: number } | null = null;
     for (const [id, s] of h2hStats) {
-      if (s.wins > 0 && (!best || s.wins > best.wins)) best = { id, ...s };
+      if (s.wins === 0) continue;
+      if (!best) { best = { id, ...s }; continue; }
+      const pct = s.wins / (s.wins + s.losses);
+      const bestPct = best.wins / (best.wins + best.losses);
+      const total = s.wins + s.losses;
+      const bestTotal = best.wins + best.losses;
+      if (pct > bestPct || (pct === bestPct && total > bestTotal)) best = { id, ...s };
     }
     return best;
   }, [h2hStats]);
 
-  // Nemesis (most losses)
+  // Nemesis — highest loss%, tiebreak: most total matches
   const nemesis = useMemo(() => {
     let worst: { id: string; wins: number; losses: number } | null = null;
     for (const [id, s] of h2hStats) {
-      if (s.losses > 0 && (!worst || s.losses > worst.losses)) worst = { id, ...s };
+      if (s.losses === 0) continue;
+      if (!worst) { worst = { id, ...s }; continue; }
+      const pct = s.losses / (s.wins + s.losses);
+      const worstPct = worst.losses / (worst.wins + worst.losses);
+      const total = s.wins + s.losses;
+      const worstTotal = worst.wins + worst.losses;
+      if (pct > worstPct || (pct === worstPct && total > worstTotal)) worst = { id, ...s };
     }
     return worst;
   }, [h2hStats]);
