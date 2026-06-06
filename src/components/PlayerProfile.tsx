@@ -403,7 +403,7 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
 
       {/* H2H */}
       <div style={{ marginBottom: 24 }}>
-        <div className="section-title" style={{ fontSize: 15, marginBottom: 10 }}>H2H против всех</div>
+        <div className="section-title" style={{ fontSize: 15, marginBottom: 10 }}>{player.name} против всех</div>
         {h2hList.length === 0
           ? <p style={{ color: '#aaa' }}>Нет данных</p>
           : (
