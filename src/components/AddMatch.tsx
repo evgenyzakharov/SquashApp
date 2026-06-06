@@ -5,6 +5,92 @@ import { DEFAULT_INITIAL_RATING } from '../core/types';
 import { addMatch, addRatingSnapshot } from '../db/api';
 import { addToQueue } from '../core/offlineQueue';
 
+// ─── Player select with mini card ────────────────────────
+
+interface PlayerSelectCardProps {
+  label: string;
+  players: Player[];
+  value: string;
+  exclude: string;
+  currentRatings: Record<string, number>;
+  onChange: (id: string) => void;
+}
+
+function PlayerSelectCard({ label, players, value, exclude, currentRatings, onChange }: PlayerSelectCardProps) {
+  const selected = players.find((p) => p.id === value);
+  const available = players.filter((p) => p.id !== exclude);
+
+  return (
+    <div className="form-group">
+      <label>{label}</label>
+      <div style={{ position: 'relative' }}>
+        {/* Visual card */}
+        <div style={{
+          border: `1.5px solid ${selected ? '#3b82f6' : '#ddd'}`,
+          borderRadius: 10,
+          padding: '8px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          background: selected ? '#f0f6ff' : '#fff',
+          minHeight: 58,
+          pointerEvents: 'none', // clicks go through to the select below
+        }}>
+          {selected ? (
+            <>
+              {selected.photoUrl
+                ? <img src={selected.photoUrl} alt={selected.name}
+                    style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                : <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16, flexShrink: 0, color: '#1d4ed8' }}>
+                    {selected.name[0].toUpperCase()}
+                  </div>
+              }
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {selected.name}
+                  {selected.hand && <span style={{ fontSize: 12, color: '#888', marginLeft: 6, fontWeight: 400 }}>
+                    {selected.hand === 'right' ? '🏸 прав.' : '🏸 лев.'}
+                  </span>}
+                </div>
+                <div style={{ fontSize: 13, color: '#3b82f6', fontWeight: 600 }}>
+                  Elo {currentRatings[selected.id] ?? DEFAULT_INITIAL_RATING}
+                </div>
+              </div>
+            </>
+          ) : (
+            <span style={{ color: '#aaa', fontSize: 14 }}>Выберите игрока...</span>
+          )}
+          <span style={{ color: '#aaa', fontSize: 12, flexShrink: 0 }}>▼</span>
+        </div>
+
+        {/* Native select — transparent overlay, handles the actual tap/selection */}
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            opacity: 0,
+            cursor: 'pointer',
+            fontSize: 16, // prevents iOS zoom on focus
+          }}
+        >
+          <option value="">Выберите...</option>
+          {available.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} ({currentRatings[p.id] ?? DEFAULT_INITIAL_RATING})
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+// ─── Network error detection ──────────────────────────────
+
 /** Returns true when the error is caused by a network problem rather than
  *  a server-side or validation error. Covers both navigator.onLine=false and
  *  the case where the browser thinks it's online but the request fails
@@ -322,32 +408,22 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
         </div>
 
         <div className="form-row">
-          <div className="form-group">
-            <label>Игрок 1 (Elo: {currentRatings[player1] ?? '—'})</label>
-            <select value={player1} onChange={(e) => setPlayer1(e.target.value)}>
-              <option value="">Выберите...</option>
-              {players
-                .filter((p) => p.id !== player2)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({currentRatings[p.id] ?? DEFAULT_INITIAL_RATING})
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Игрок 2 (Elo: {currentRatings[player2] ?? '—'})</label>
-            <select value={player2} onChange={(e) => setPlayer2(e.target.value)}>
-              <option value="">Выберите...</option>
-              {players
-                .filter((p) => p.id !== player1)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({currentRatings[p.id] ?? DEFAULT_INITIAL_RATING})
-                  </option>
-                ))}
-            </select>
-          </div>
+          <PlayerSelectCard
+            label="Игрок 1"
+            players={players}
+            value={player1}
+            exclude={player2}
+            currentRatings={currentRatings}
+            onChange={setPlayer1}
+          />
+          <PlayerSelectCard
+            label="Игрок 2"
+            players={players}
+            value={player2}
+            exclude={player1}
+            currentRatings={currentRatings}
+            onChange={setPlayer2}
+          />
         </div>
 
         <div className="form-row">
