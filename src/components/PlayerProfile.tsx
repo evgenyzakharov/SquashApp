@@ -109,27 +109,16 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
   const winPercent = games > 0 ? (wins / games * 100).toFixed(0) : '0';
   const avgDiff = games > 0 ? ((pointsWon - pointsLost) / games) : 0;
 
-  // Пик50 — last 50 days
+  // Пик30 — peak over last 30 player matches (consistent with sparkline)
   const { peakRating, peakDate } = useMemo(() => {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 50);
-    const cutoffStr = cutoff.toISOString().split('T')[0];
+    const last30 = playerMatches.slice(-30);
     let peak = -Infinity, peakDate: string | null = null;
-    for (const s of snapshots) {
-      if (s.date < cutoffStr) continue;
-      const r = s.ratings[player.id];
-      if (r !== undefined && r > peak) { peak = r; peakDate = s.date; }
-    }
-    if (peak === -Infinity) {
-      // fallback: last 50 snapshots containing this player
-      const ps = snapshots.filter(s => s.ratings[player.id] !== undefined).slice(-50);
-      for (const s of ps) {
-        const r = s.ratings[player.id];
-        if (r !== undefined && r > peak) { peak = r; peakDate = s.date; }
-      }
+    for (const m of last30) {
+      const r = m.player1Id === player.id ? m.eloAfterP1 : m.eloAfterP2;
+      if (r > peak) { peak = r; peakDate = m.date; }
     }
     return { peakRating: peak === -Infinity ? currentRating : peak, peakDate };
-  }, [snapshots, player.id, currentRating]);
+  }, [playerMatches, player.id, currentRating]);
 
   // Form guide — last 5 results
   const formGuide = useMemo(() => {
@@ -274,7 +263,7 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
         {[
           { label: 'Матчей', value: games },
           { label: '% Побед', value: `${winPercent}%` },
-          { label: 'Пик50', value: peakRating, sub: peakDate ? fmtDate(peakDate) : null },
+          { label: 'Пик30', value: peakRating, sub: peakDate ? fmtDate(peakDate) : null },
           { label: 'Ср. ±', value: `${avgDiff >= 0 ? '+' : ''}${avgDiff.toFixed(1)}`, color: avgDiff >= 0 ? '#16a34a' : '#dc2626' },
         ].map(c => (
           <div key={c.label} style={{ background: '#f8fafc', borderRadius: 10, padding: '10px 8px', textAlign: 'center', border: '1px solid #e5e7eb' }}>

@@ -38,7 +38,7 @@ export function Dashboard({ players, matches, snapshots, onPlayerClick }: Props)
               <th>#</th>
               <th>Игрок</th>
               <th>Рейтинг</th>
-              <th>Пик50</th>
+              <th>Пик30</th>
               <th>Дата пика</th>
               <th>Игр</th>
               <th>Побед</th>

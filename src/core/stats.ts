@@ -42,7 +42,7 @@ export function calculatePlayerStats(
   }
 
   const currentRating = getCurrentRating(player.id, ratingSnapshots);
-  const { peakRating, peakDate } = getPeakRatingWithDate(player.id, ratingSnapshots);
+  const { peakRating, peakDate } = getPeakRatingWithDate(player.id, matches, ratingSnapshots);
 
   return {
     playerId: player.id,
@@ -71,43 +71,25 @@ function getCurrentRating(playerId: string, snapshots: RatingSnapshot[]): number
 }
 
 /**
- * Get peak rating and date for a player within the last 50 days.
- * If there are no snapshots in the last 50 days, uses the last 50 snapshots
- * that include this player as a fallback window.
- * Allows values below the initial rating.
+ * Get peak rating and date for a player over their last 30 matches.
+ * Uses eloAfterP1/P2 stored in each match — consistent with the sparkline chart.
+ * Falls back to currentRating if the player has no matches.
  */
-function getPeakRatingWithDate(playerId: string, snapshots: RatingSnapshot[]): { peakRating: number; peakDate: string | null } {
-  const now = new Date();
-  const cutoff = new Date(now);
-  cutoff.setDate(cutoff.getDate() - 50);
-  const cutoffStr = cutoff.toISOString().split('T')[0];
+function getPeakRatingWithDate(
+  playerId: string,
+  matches: Match[],
+  snapshots: RatingSnapshot[],
+): { peakRating: number; peakDate: string | null } {
+  const playerMatches = matches
+    .filter((m) => m.player1Id === playerId || m.player2Id === playerId)
+    .slice(-30);
 
   let peak = -Infinity;
   let peakDate: string | null = null;
 
-  for (const snap of snapshots) {
-    if (snap.date < cutoffStr) continue;
-    const r = snap.ratings[playerId];
-    if (r !== undefined && r > peak) {
-      peak = r;
-      peakDate = snap.date;
-    }
-  }
-
-  if (peak !== -Infinity) {
-    return { peakRating: peak, peakDate };
-  }
-
-  // No snapshots in the 90-day window — use the most recent 50 snapshots
-  // that actually contain this player's rating as a fallback window
-  const playerSnaps = snapshots.filter((s) => s.ratings[playerId] !== undefined);
-  const fallbackWindow = playerSnaps.slice(-50);
-  for (const snap of fallbackWindow) {
-    const r = snap.ratings[playerId];
-    if (r !== undefined && r > peak) {
-      peak = r;
-      peakDate = snap.date;
-    }
+  for (const m of playerMatches) {
+    const r = m.player1Id === playerId ? m.eloAfterP1 : m.eloAfterP2;
+    if (r > peak) { peak = r; peakDate = m.date; }
   }
 
   if (peak === -Infinity) {
