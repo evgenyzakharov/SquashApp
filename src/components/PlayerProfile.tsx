@@ -155,11 +155,14 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
     return map;
   }, [playerMatches, player.id]);
 
-  // Favorite opponent — highest win%, tiebreak: most total matches
+  const MIN_H2H_MATCHES = 10;
+
+  // Favorite opponent — highest win%, tiebreak: most total matches (min 10 matches)
   const favorite = useMemo(() => {
     let best: { id: string; wins: number; losses: number } | null = null;
     for (const [id, s] of h2hStats) {
       if (s.wins === 0) continue;
+      if ((s.wins + s.losses) < MIN_H2H_MATCHES) continue;
       if (!best) { best = { id, ...s }; continue; }
       const pct = s.wins / (s.wins + s.losses);
       const bestPct = best.wins / (best.wins + best.losses);
@@ -170,11 +173,12 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
     return best;
   }, [h2hStats]);
 
-  // Nemesis — highest loss%, tiebreak: most total matches
+  // Nemesis — highest loss%, tiebreak: most total matches (min 10 matches)
   const nemesis = useMemo(() => {
     let worst: { id: string; wins: number; losses: number } | null = null;
     for (const [id, s] of h2hStats) {
       if (s.losses === 0) continue;
+      if ((s.wins + s.losses) < MIN_H2H_MATCHES) continue;
       if (!worst) { worst = { id, ...s }; continue; }
       const pct = s.losses / (s.wins + s.losses);
       const worstPct = worst.losses / (worst.wins + worst.losses);
@@ -242,7 +246,7 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
           </div>
           {player.hand && (
             <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>
-              🏸 {player.hand === 'right' ? 'Правая рука' : 'Левая рука'}
+              🏸 {player.hand === 'right' ? 'Правша' : 'Левша'}
             </div>
           )}
         </div>

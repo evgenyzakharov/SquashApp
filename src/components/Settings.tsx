@@ -189,7 +189,7 @@ export function Settings({ allPlayers, onChanged, onClose, onRecalculate }: Prop
                     onClick={() => handleSetHand(p, h)}
                     disabled={saving}
                   >
-                    {h === 'right' ? 'Правая' : 'Левая'}
+                    {h === 'right' ? 'Правша' : 'Левша'}
                   </button>
                 ))}
               </div>
