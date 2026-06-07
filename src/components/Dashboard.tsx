@@ -9,6 +9,44 @@ interface Props {
   onPlayerClick: (playerId: string) => void;
 }
 
+// ─── Day winner helper ─────────────────────────────────────
+
+function computeDayWinner(
+  dayMatches: Match[],
+  playerNames: Map<string, string>,
+): { names: string[]; wins: number; losses: number | null; tie: boolean } | null {
+  const winsMap = new Map<string, number>();
+  for (const m of dayMatches) {
+    if (m.score1 === m.score2) continue;
+    const winnerId = m.score1 > m.score2 ? m.player1Id : m.player2Id;
+    winsMap.set(winnerId, (winsMap.get(winnerId) ?? 0) + 1);
+  }
+  if (winsMap.size === 0) return null;
+
+  const sorted = [...winsMap.entries()].sort((a, b) => b[1] - a[1]);
+  const maxWins = sorted[0][1];
+  const tied = sorted.filter(([, w]) => w === maxWins);
+
+  if (tied.length === 1) {
+    const [id, w] = tied[0];
+    const losses = dayMatches.filter(
+      (m) =>
+        (m.player1Id === id && m.score2 > m.score1) ||
+        (m.player2Id === id && m.score1 > m.score2),
+    ).length;
+    return { names: [playerNames.get(id) ?? id], wins: w, losses, tie: false };
+  }
+
+  return {
+    names: tied.map(([id]) => playerNames.get(id) ?? id),
+    wins: maxWins,
+    losses: null,
+    tie: true,
+  };
+}
+
+// ─── Component ────────────────────────────────────────────
+
 export function Dashboard({ players, matches, snapshots, onPlayerClick }: Props) {
   const stats = useMemo(
     () =>
@@ -24,6 +62,14 @@ export function Dashboard({ players, matches, snapshots, onPlayerClick }: Props)
     return map;
   }, [players]);
 
+  // Today's winner — only shown if matches were played today
+  const todayWinner = useMemo(() => {
+    const today = new Date().toLocaleDateString('sv'); // YYYY-MM-DD in local TZ
+    const todayMatches = matches.filter((m) => m.date === today);
+    if (todayMatches.length === 0) return null;
+    return computeDayWinner(todayMatches, playerNames);
+  }, [matches, playerNames]);
+
   if (players.length === 0) {
     return <p>Нет игроков. Добавьте игроков в Supabase.</p>;
   }
@@ -31,6 +77,40 @@ export function Dashboard({ players, matches, snapshots, onPlayerClick }: Props)
   return (
     <div>
       <h2 className="section-title">Рейтинг игроков</h2>
+
+      {/* Победитель дня */}
+      {todayWinner && (
+        <div style={{
+          background: 'linear-gradient(135deg, #fef9c3 0%, #fde68a 100%)',
+          border: '1px solid #fbbf24',
+          borderRadius: 10,
+          padding: '12px 16px',
+          marginBottom: 16,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+        }}>
+          <span style={{ fontSize: 26, lineHeight: 1 }}>🏆</span>
+          <div>
+            <div style={{ fontSize: 11, color: '#92400e', fontWeight: 500, marginBottom: 2 }}>
+              {todayWinner.tie ? 'Победители дня' : 'Победитель дня'}
+            </div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: '#78350f' }}>
+              {todayWinner.names.join(' · ')}
+              {!todayWinner.tie && (
+                <span style={{ fontWeight: 400, fontSize: 13, marginLeft: 8, color: '#92400e' }}>
+                  {todayWinner.wins}–{todayWinner.losses}
+                </span>
+              )}
+              {todayWinner.tie && (
+                <span style={{ fontWeight: 400, fontSize: 13, marginLeft: 8, color: '#92400e' }}>
+                  по {todayWinner.wins} {todayWinner.wins === 1 ? 'победе' : 'победы'}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="table-wrap">
         <table>
           <thead>

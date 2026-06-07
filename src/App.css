@@ -431,6 +431,28 @@ tr:hover {
   cursor: wait;
 }
 
+/* ─── Match history day header rows ─────────────────────── */
+.day-header-row td {
+  background: #f0f4ff;
+  border-bottom: 1px solid #dbeafe;
+  border-top: 2px solid #dbeafe;
+  padding: 5px 12px;
+  white-space: nowrap;
+}
+
+.day-header-date {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.day-header-winner {
+  font-size: 12px;
+  font-weight: 500;
+  color: #92400e;
+  margin-left: 14px;
+}
+
 /* ─── Desktop-only columns (hidden on mobile) ───────────── */
 @media (max-width: 640px) {
   .col-desktop {
