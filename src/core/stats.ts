@@ -44,6 +44,11 @@ export function calculatePlayerStats(
   const currentRating = getCurrentRating(player.id, ratingSnapshots);
   const { peakRating, peakDate } = getPeakRatingWithDate(player.id, matches, ratingSnapshots);
 
+  let lastMatchDate: string | null = null;
+  for (const m of playerMatches) {
+    if (lastMatchDate === null || m.date > lastMatchDate) lastMatchDate = m.date;
+  }
+
   return {
     playerId: player.id,
     games,
@@ -58,6 +63,7 @@ export function calculatePlayerStats(
     currentRating,
     peakRating,
     peakDate,
+    lastMatchDate,
   };
 }
 

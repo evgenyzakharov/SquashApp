@@ -40,6 +40,7 @@ export interface PlayerStats {
   currentRating: number;
   peakRating: number;
   peakDate: string | null;
+  lastMatchDate: string | null;
 }
 
 export interface ScheduleInput {

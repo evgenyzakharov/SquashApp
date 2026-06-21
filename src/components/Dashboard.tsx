@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
-import type { Player, Match, RatingSnapshot } from '../core/types';
+import type { Player, Match, RatingSnapshot, PlayerStats } from '../core/types';
 import { calculateAllStats } from '../core/stats';
+
+// Player is "inactive" if no matches in the last N days
+const INACTIVE_DAYS = 30;
 
 interface Props {
   players: Player[];
@@ -70,6 +73,43 @@ export function Dashboard({ players, matches, snapshots, onPlayerClick }: Props)
     return computeDayWinner(todayMatches, playerNames);
   }, [matches, playerNames]);
 
+  // Split into active / inactive by last match date
+  const { activeStats, inactiveStats } = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - INACTIVE_DAYS);
+    const cutoffStr = cutoff.toLocaleDateString('sv'); // YYYY-MM-DD in local TZ
+    const active: PlayerStats[] = [];
+    const inactive: PlayerStats[] = [];
+    for (const s of stats) {
+      if (s.lastMatchDate && s.lastMatchDate >= cutoffStr) active.push(s);
+      else inactive.push(s);
+    }
+    return { activeStats: active, inactiveStats: inactive };
+  }, [stats]);
+
+  const renderRow = (s: PlayerStats, rank: number | null, inactive: boolean) => (
+    <tr key={s.playerId} className={inactive ? 'inactive-row' : undefined}>
+      <td>{rank ?? '—'}</td>
+      <td>
+        <button
+          onClick={() => onPlayerClick(s.playerId)}
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 700, color: 'inherit', fontSize: 'inherit', textDecoration: 'underline dotted' }}
+        >
+          {playerNames.get(s.playerId) ?? s.playerId}
+        </button>
+      </td>
+      <td><strong>{s.currentRating}</strong></td>
+      <td className="col-desktop">{inactive ? '—' : s.peakRating}</td>
+      <td className="col-desktop">{inactive ? '—' : (s.peakDate ? s.peakDate.slice(8, 10) + '.' + s.peakDate.slice(5, 7) : '—')}</td>
+      <td className="col-desktop">{s.games}</td>
+      <td>{(s.winPercent * 100).toFixed(0)}%</td>
+      <td className={`col-desktop ${s.avgDifference >= 0 ? 'stat-positive' : 'stat-negative'}`}>
+        {s.avgDifference >= 0 ? '+' : ''}{s.avgDifference.toFixed(2)}
+      </td>
+      <td>{(s.rallyWinPercent * 100).toFixed(0)}%</td>
+    </tr>
+  );
+
   if (players.length === 0) {
     return <p>Нет игроков. Добавьте игроков в Supabase.</p>;
   }
@@ -127,28 +167,13 @@ export function Dashboard({ players, matches, snapshots, onPlayerClick }: Props)
             </tr>
           </thead>
           <tbody>
-            {stats.map((s, i) => (
-              <tr key={s.playerId}>
-                <td>{i + 1}</td>
-                <td>
-                  <button
-                    onClick={() => onPlayerClick(s.playerId)}
-                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 700, color: 'inherit', fontSize: 'inherit', textDecoration: 'underline dotted' }}
-                  >
-                    {playerNames.get(s.playerId) ?? s.playerId}
-                  </button>
-                </td>
-                <td><strong>{s.currentRating}</strong></td>
-                <td className="col-desktop">{s.peakRating}</td>
-                <td className="col-desktop">{s.peakDate ? s.peakDate.slice(8, 10) + '.' + s.peakDate.slice(5, 7) : '—'}</td>
-                <td className="col-desktop">{s.games}</td>
-                <td>{(s.winPercent * 100).toFixed(0)}%</td>
-                <td className={`col-desktop ${s.avgDifference >= 0 ? 'stat-positive' : 'stat-negative'}`}>
-                  {s.avgDifference >= 0 ? '+' : ''}{s.avgDifference.toFixed(2)}
-                </td>
-                <td>{(s.rallyWinPercent * 100).toFixed(0)}%</td>
+            {activeStats.map((s, i) => renderRow(s, i + 1, false))}
+            {inactiveStats.length > 0 && (
+              <tr className="inactive-divider-row">
+                <td colSpan={9}>⏸ Не в строю · не играли больше месяца</td>
               </tr>
-            ))}
+            )}
+            {inactiveStats.map((s) => renderRow(s, null, true))}
           </tbody>
         </table>
       </div>

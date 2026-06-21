@@ -431,6 +431,26 @@ tr:hover {
   cursor: wait;
 }
 
+/* ─── Inactive players section (Dashboard) ──────────────── */
+.inactive-divider-row td {
+  background: #f3f4f6;
+  border-top: 2px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.inactive-row {
+  opacity: 0.55;
+}
+
+.inactive-row:hover {
+  opacity: 0.8;
+}
+
 /* ─── Match history day header rows ─────────────────────── */
 .day-header-row td {
   background: #f0f4ff;
