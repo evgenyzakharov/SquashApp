@@ -193,18 +193,16 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
     return worst;
   }, [h2hStats]);
 
-  // Rating history for sparkline — last 30 of THIS player's matches,
-  // using eloAfter from each match (not snapshots, which include all players)
+  // Rating history for sparkline — eloAfter of THIS player's matches in the last
+  // PEAK_WINDOW_DAYS days. Kept identical to the Пик30 card source so the chart's
+  // max always equals the displayed peak (no pre-window "entry" point).
   const ratingHistory = useMemo(() => {
-    const last30 = playerMatches.slice(-30);
-    if (last30.length === 0) return [];
-    // Prepend the rating before the first shown match so the chart starts from context
-    const first = last30[0];
-    const startRating = first.player1Id === player.id ? first.eloBeforeP1 : first.eloBeforeP2;
-    const afterRatings = last30.map(m =>
-      m.player1Id === player.id ? m.eloAfterP1 : m.eloAfterP2,
-    );
-    return [startRating, ...afterRatings];
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - PEAK_WINDOW_DAYS);
+    const cutoffStr = cutoff.toLocaleDateString('sv');
+    return playerMatches
+      .filter((m) => m.date >= cutoffStr)
+      .map((m) => (m.player1Id === player.id ? m.eloAfterP1 : m.eloAfterP2));
   }, [playerMatches, player.id]);
 
   // Last 10 matches (newest first)
@@ -243,7 +241,10 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
             <h2 style={{ margin: 0, fontSize: 24 }}>{player.name}</h2>
-            <span style={{ color: '#888', fontSize: 14 }}>#{rank} в рейтинге</span>
+            {rank > 0
+              ? <span style={{ color: '#888', fontSize: 14 }}>#{rank} в рейтинге</span>
+              : <span style={{ color: '#b45309', fontSize: 14 }}>⏸ не в строю</span>
+            }
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 22, fontWeight: 700, color: '#1d4ed8' }}>◆ {currentRating}</span>
@@ -261,7 +262,7 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
         {[
           { label: 'Матчей', value: games },
           { label: '% Побед', value: `${winPercent}%` },
-          { label: 'Пик30', value: peakRating, sub: peakDate ? fmtDate(peakDate) : null },
+          { label: 'Пик30', value: peakDate ? peakRating : '—', sub: peakDate ? fmtDate(peakDate) : null },
           { label: 'Ср. ±', value: `${avgDiff >= 0 ? '+' : ''}${avgDiff.toFixed(1)}`, color: avgDiff >= 0 ? '#16a34a' : '#dc2626' },
         ].map(c => (
           <div key={c.label} style={{ background: '#f8fafc', borderRadius: 10, padding: '10px 8px', textAlign: 'center', border: '1px solid #e5e7eb' }}>
@@ -317,7 +318,7 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
             const max = Math.max(...ratingHistory);
             return (
               <div style={{ fontSize: 13, color: '#666', marginBottom: 6 }}>
-                📈 Динамика рейтинга (посл. {ratingHistory.length - 1} матчей · min: {min} · max: {max})
+                📈 Динамика рейтинга (за 30 дней · {ratingHistory.length} матч. · min: {min} · max: {max})
               </div>
             );
           })()}

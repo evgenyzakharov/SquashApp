@@ -5,6 +5,7 @@ import { calculateNewRatings } from './core/elo';
 import { DEFAULT_INITIAL_RATING } from './core/types';
 import { getQueue, getQueueSize, clearQueue } from './core/offlineQueue';
 import { recalculateFrom } from './core/recalculate';
+import { cutoffDate, getLastMatchDate, INACTIVE_DAYS } from './core/stats';
 import { Dashboard } from './components/Dashboard';
 import { MatchHistory } from './components/MatchHistory';
 import { AddMatch } from './components/AddMatch';
@@ -412,17 +413,25 @@ export default function App() {
               (() => {
                 const p = allPlayers.find(pl => pl.id === selectedPlayerId);
                 if (!p) { setSelectedPlayerId(null); return null; }
-                const statsAll = [...players]
-                  .map(pl => ({ id: pl.id, rating: snapshots.length > 0 ? (snapshots[snapshots.length - 1].ratings[pl.id] ?? 1000) : 1000 }))
+                // Rank among ACTIVE players only — matches the Dashboard numbering.
+                // Inactive players (no matches in INACTIVE_DAYS) get rank 0 → "не в строю".
+                const cutoffStr = cutoffDate(INACTIVE_DAYS);
+                const activeRanked = [...players]
+                  .map(pl => ({
+                    id: pl.id,
+                    rating: snapshots.length > 0 ? (snapshots[snapshots.length - 1].ratings[pl.id] ?? 1000) : 1000,
+                    last: getLastMatchDate(pl.id, matches),
+                  }))
+                  .filter(s => s.last && s.last >= cutoffStr)
                   .sort((a, b) => b.rating - a.rating);
-                const rank = statsAll.findIndex(s => s.id === selectedPlayerId) + 1;
+                const rank = activeRanked.findIndex(s => s.id === selectedPlayerId) + 1;
                 return (
                   <PlayerProfile
                     player={p}
                     allPlayers={allPlayers}
                     matches={matches}
                     snapshots={snapshots}
-                    rank={rank || 1}
+                    rank={rank}
                     onBack={() => setSelectedPlayerId(null)}
                   />
                 );

@@ -1,9 +1,6 @@
 import { useMemo } from 'react';
 import type { Player, Match, RatingSnapshot, PlayerStats } from '../core/types';
-import { calculateAllStats } from '../core/stats';
-
-// Player is "inactive" if no matches in the last N days
-const INACTIVE_DAYS = 30;
+import { calculateAllStats, cutoffDate, INACTIVE_DAYS } from '../core/stats';
 
 interface Props {
   players: Player[];
@@ -75,9 +72,7 @@ export function Dashboard({ players, matches, snapshots, onPlayerClick }: Props)
 
   // Split into active / inactive by last match date
   const { activeStats, inactiveStats } = useMemo(() => {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - INACTIVE_DAYS);
-    const cutoffStr = cutoff.toLocaleDateString('sv'); // YYYY-MM-DD in local TZ
+    const cutoffStr = cutoffDate(INACTIVE_DAYS);
     const active: PlayerStats[] = [];
     const inactive: PlayerStats[] = [];
     for (const s of stats) {

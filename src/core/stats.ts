@@ -5,6 +5,29 @@ import { DEFAULT_INITIAL_RATING } from './types';
 /** Пик30 / дата пика are computed over matches within this many days. */
 export const PEAK_WINDOW_DAYS = 30;
 
+/** A player with no matches in this many days is considered "inactive" (out of the ranking). */
+export const INACTIVE_DAYS = 30;
+
+/**
+ * Last match date for a player ("" if none). ISO dates compare lexicographically.
+ */
+export function getLastMatchDate(playerId: string, matches: Match[]): string {
+  let last = '';
+  for (const m of matches) {
+    if ((m.player1Id === playerId || m.player2Id === playerId) && m.date > last) last = m.date;
+  }
+  return last;
+}
+
+/**
+ * Date string (YYYY-MM-DD) `days` before `now`, in local TZ.
+ */
+export function cutoffDate(days: number, now: Date = new Date()): string {
+  const d = new Date(now);
+  d.setDate(d.getDate() - days);
+  return d.toLocaleDateString('sv');
+}
+
 /**
  * Calculate full statistics for all players.
  * `now` is injectable so the peak window ("last 30 days") is deterministic in tests.
@@ -97,9 +120,7 @@ function getPeakRatingWithDate(
   snapshots: RatingSnapshot[],
   now: Date,
 ): { peakRating: number; peakDate: string | null } {
-  const cutoff = new Date(now);
-  cutoff.setDate(cutoff.getDate() - PEAK_WINDOW_DAYS);
-  const cutoffStr = cutoff.toLocaleDateString('sv'); // YYYY-MM-DD in local TZ
+  const cutoffStr = cutoffDate(PEAK_WINDOW_DAYS, now);
 
   const playerMatches = matches.filter(
     (m) => (m.player1Id === playerId || m.player2Id === playerId) && m.date >= cutoffStr,
