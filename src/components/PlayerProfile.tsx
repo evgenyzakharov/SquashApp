@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { Player, Match, RatingSnapshot } from '../core/types';
 import { DEFAULT_INITIAL_RATING } from '../core/types';
+import { PEAK_WINDOW_DAYS } from '../core/stats';
 
 interface Props {
   player: Player;
@@ -104,11 +105,14 @@ export function PlayerProfile({ player, allPlayers, matches, snapshots, rank, on
   const avgPointsLost = games > 0 ? pointsLost / games : 0;
   const rallyWinPct = (pointsWon + pointsLost) > 0 ? (pointsWon / (pointsWon + pointsLost) * 100).toFixed(0) : '0';
 
-  // Пик30 — peak over last 30 player matches (consistent with sparkline)
+  // Пик30 — peak over matches in the last PEAK_WINDOW_DAYS days
   const { peakRating, peakDate } = useMemo(() => {
-    const last30 = playerMatches.slice(-30);
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - PEAK_WINDOW_DAYS);
+    const cutoffStr = cutoff.toLocaleDateString('sv');
+    const recent = playerMatches.filter((m) => m.date >= cutoffStr);
     let peak = -Infinity, peakDate: string | null = null;
-    for (const m of last30) {
+    for (const m of recent) {
       const r = m.player1Id === player.id ? m.eloAfterP1 : m.eloAfterP2;
       if (r > peak) { peak = r; peakDate = m.date; }
     }

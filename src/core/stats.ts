@@ -2,15 +2,20 @@ import type { Match, Player, PlayerStats, RatingSnapshot } from './types';
 import { calculateExpectedScore } from './elo';
 import { DEFAULT_INITIAL_RATING } from './types';
 
+/** Пик30 / дата пика are computed over matches within this many days. */
+export const PEAK_WINDOW_DAYS = 30;
+
 /**
  * Calculate full statistics for all players.
+ * `now` is injectable so the peak window ("last 30 days") is deterministic in tests.
  */
 export function calculateAllStats(
   players: Player[],
   matches: Match[],
   ratingSnapshots: RatingSnapshot[],
+  now: Date = new Date(),
 ): PlayerStats[] {
-  return players.map((player) => calculatePlayerStats(player, matches, ratingSnapshots));
+  return players.map((player) => calculatePlayerStats(player, matches, ratingSnapshots, now));
 }
 
 /**
@@ -20,6 +25,7 @@ export function calculatePlayerStats(
   player: Player,
   matches: Match[],
   ratingSnapshots: RatingSnapshot[],
+  now: Date = new Date(),
 ): PlayerStats {
   const playerMatches = matches.filter(
     (m) => m.player1Id === player.id || m.player2Id === player.id,
@@ -42,7 +48,7 @@ export function calculatePlayerStats(
   }
 
   const currentRating = getCurrentRating(player.id, ratingSnapshots);
-  const { peakRating, peakDate } = getPeakRatingWithDate(player.id, matches, ratingSnapshots);
+  const { peakRating, peakDate } = getPeakRatingWithDate(player.id, matches, ratingSnapshots, now);
 
   let lastMatchDate: string | null = null;
   for (const m of playerMatches) {
@@ -77,18 +83,27 @@ function getCurrentRating(playerId: string, snapshots: RatingSnapshot[]): number
 }
 
 /**
- * Get peak rating and date for a player over their last 30 matches.
- * Uses eloAfterP1/P2 stored in each match — consistent with the sparkline chart.
- * Falls back to currentRating if the player has no matches.
+ * Get peak rating and date for a player over matches within the last
+ * PEAK_WINDOW_DAYS days (relative to `now`). Uses eloAfterP1/P2 stored in each match.
+ * Falls back to currentRating (no date) if the player has no matches in that window —
+ * e.g. an inactive player, whose Пик30/дата пика the Dashboard shows as "—" anyway.
+ *
+ * A day-based window (rather than "last N matches") avoids the peak being polluted by a
+ * rare player's very first games, where the rating sits near the 1000 starting value.
  */
 function getPeakRatingWithDate(
   playerId: string,
   matches: Match[],
   snapshots: RatingSnapshot[],
+  now: Date,
 ): { peakRating: number; peakDate: string | null } {
-  const playerMatches = matches
-    .filter((m) => m.player1Id === playerId || m.player2Id === playerId)
-    .slice(-30);
+  const cutoff = new Date(now);
+  cutoff.setDate(cutoff.getDate() - PEAK_WINDOW_DAYS);
+  const cutoffStr = cutoff.toLocaleDateString('sv'); // YYYY-MM-DD in local TZ
+
+  const playerMatches = matches.filter(
+    (m) => (m.player1Id === playerId || m.player2Id === playerId) && m.date >= cutoffStr,
+  );
 
   let peak = -Infinity;
   let peakDate: string | null = null;

@@ -77,17 +77,43 @@ describe('calculatePlayerStats', () => {
     expect(stats.currentRating).toBe(999);
   });
 
-  it('gets peak rating over last 30 matches (Пик30)', () => {
+  it('gets peak rating over the last 30 days (Пик30)', () => {
     // Alice's matches: m1 (eloAfter=1016), m3 (eloAfter=999), m4 (eloAfter=999)
-    // Peak = 1016 on 2025-01-01 (m1)
-    const stats = calculatePlayerStats(players[0], matches, snapshots);
+    // With `now` close to the matches, all fall in the 30-day window → peak 1016 on 2025-01-01
+    const now = new Date('2025-01-15');
+    const stats = calculatePlayerStats(players[0], matches, snapshots, now);
     expect(stats.peakRating).toBe(1016);
     expect(stats.peakDate).toBe('2025-01-01');
 
     // Player with no matches → falls back to currentRating, no date
     const newPlayer = { id: 'dave', name: 'Dave' };
-    const noMatchStats = calculatePlayerStats(newPlayer, matches, snapshots);
+    const noMatchStats = calculatePlayerStats(newPlayer, matches, snapshots, now);
     expect(noMatchStats.peakDate).toBeNull();
+  });
+
+  it('peak ignores matches older than 30 days (date-windowed, not last-N-matches)', () => {
+    const p: Player = { id: 'p', name: 'P' };
+    const ms: Match[] = [
+      // High rating, but long ago → must be excluded
+      {
+        id: 'old', orderNumber: 1, date: '2025-01-01',
+        player1Id: 'p', player2Id: 'x', score1: 11, score2: 0,
+        eloBeforeP1: 1000, eloBeforeP2: 1000, eloAfterP1: 1200, eloAfterP2: 800,
+      },
+      // Recent, lower rating → this is the windowed peak
+      {
+        id: 'recent', orderNumber: 2, date: '2025-06-10',
+        player1Id: 'p', player2Id: 'x', score1: 5, score2: 11,
+        eloBeforeP1: 1200, eloBeforeP2: 800, eloAfterP1: 1100, eloAfterP2: 900,
+      },
+    ];
+    const snaps: RatingSnapshot[] = [
+      { date: '2025-06-10', matchId: 'recent', ratings: { p: 1100, x: 900 } },
+    ];
+    const now = new Date('2025-06-20'); // window starts 2025-05-21 → only 'recent' qualifies
+    const stats = calculatePlayerStats(p, ms, snaps, now);
+    expect(stats.peakRating).toBe(1100); // old 1200 excluded
+    expect(stats.peakDate).toBe('2025-06-10');
   });
 
   it('handles player with no matches', () => {
