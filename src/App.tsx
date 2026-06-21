@@ -3,7 +3,7 @@ import type { Player, Match, RatingSnapshot } from './core/types';
 import { fetchPlayers, fetchAllPlayers, fetchMatches, fetchRatingSnapshots, addMatch, addRatingSnapshot, deleteMatch, deleteSnapshotsByMatchIds, deleteAllSnapshots, bulkAddSnapshots, updateMatchElo, bulkUpdateMatchElo, updateMatchOrder } from './db/api';
 import { calculateNewRatings } from './core/elo';
 import { DEFAULT_INITIAL_RATING } from './core/types';
-import { getQueue, getQueueSize, clearQueue } from './core/offlineQueue';
+import { getQueue, getQueueSize, clearQueue, isNetworkError } from './core/offlineQueue';
 import { recalculateFrom } from './core/recalculate';
 import { cutoffDate, getLastMatchDate, INACTIVE_DAYS } from './core/stats';
 import { Dashboard } from './components/Dashboard';
@@ -295,10 +295,12 @@ export default function App() {
     await loadData();
     return results;
   } catch (err) {
-    // Only refresh state when online — calling loadData() while offline
-    // sets the app-level error flag and hides the entire UI, preventing
-    // AddMatch from saving to the offline queue.
-    if (navigator.onLine) {
+    // Only refresh state on a genuine server/partial failure. For a network
+    // error (offline, or — common on mobile — navigator.onLine===true but the
+    // request still fails) we must NOT call loadData(): it would fail again and
+    // set the app-level error flag, blanking the whole UI and stopping AddMatch
+    // from saving to the offline queue.
+    if (!isNetworkError(err)) {
       try { await loadData(); } catch { /* ignore secondary error */ }
     }
     const msg = err instanceof Error

@@ -3,7 +3,7 @@ import type { Player, Match, RatingSnapshot } from '../core/types';
 import { calculateNewRatings } from '../core/elo';
 import { DEFAULT_INITIAL_RATING } from '../core/types';
 import { addMatch, addRatingSnapshot } from '../db/api';
-import { addToQueue } from '../core/offlineQueue';
+import { addToQueue, isNetworkError } from '../core/offlineQueue';
 
 // ─── Player select with mini card ────────────────────────
 
@@ -85,22 +85,6 @@ function PlayerSelectCard({ label, players, value, exclude, currentRatings, onCh
       </div>
     </div>
   );
-}
-
-// ─── Network error detection ──────────────────────────────
-
-/** Returns true when the error is caused by a network problem rather than
- *  a server-side or validation error. Covers both navigator.onLine=false and
- *  the case where the browser thinks it's online but the request fails
- *  (weak signal, captive portal, etc.). */
-function isNetworkError(err: unknown): boolean {
-  if (!navigator.onLine) return true;
-  if (err instanceof TypeError) return true; // "Failed to fetch" / "NetworkError"
-  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-  return msg.includes('failed to fetch')
-    || msg.includes('network')
-    || msg.includes('networkerror')
-    || msg.includes('fetch');
 }
 
 interface ParsedMatch {

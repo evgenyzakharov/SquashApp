@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getQueue, addToQueue, clearQueue, getQueueSize } from '../src/core/offlineQueue';
+import { getQueue, addToQueue, clearQueue, getQueueSize, isNetworkError } from '../src/core/offlineQueue';
 import type { OfflineMatch } from '../src/core/offlineQueue';
 
 // ─── localStorage mock ────────────────────────────────────
@@ -12,6 +12,14 @@ const localStorageMock = {
   clear: () => { Object.keys(store).forEach((k) => delete store[k]); },
 };
 Object.defineProperty(global, 'localStorage', { value: localStorageMock });
+
+// ─── navigator.onLine mock ────────────────────────────────
+
+let online = true;
+Object.defineProperty(global, 'navigator', {
+  value: { get onLine() { return online; } },
+  configurable: true,
+});
 
 // ─── Helpers ──────────────────────────────────────────────
 
@@ -96,5 +104,42 @@ describe('offlineQueue', () => {
     };
     addToQueue(m);
     expect(getQueue()[0]).toEqual(m);
+  });
+});
+
+describe('isNetworkError', () => {
+  beforeEach(() => { online = true; });
+
+  it('is true whenever the browser reports offline (any error)', () => {
+    online = false;
+    expect(isNetworkError(new Error('null value violates not-null constraint'))).toBe(true);
+    expect(isNetworkError({ message: 'whatever' })).toBe(true);
+  });
+
+  it('is true for a TypeError even when navigator reports online', () => {
+    online = true;
+    expect(isNetworkError(new TypeError('Failed to fetch'))).toBe(true);
+  });
+
+  it('is true for fetch/network messages when navigator reports online', () => {
+    online = true;
+    expect(isNetworkError(new Error('Failed to fetch'))).toBe(true);
+    expect(isNetworkError(new Error('NetworkError when attempting to fetch resource'))).toBe(true);
+    expect(isNetworkError('network request failed')).toBe(true);
+  });
+
+  it('is true for a Supabase-style plain object error (not an Error instance)', () => {
+    online = true;
+    // This is exactly what supabase-js throws when the underlying fetch fails.
+    // String(obj) === "[object Object]" — the .message must be read explicitly.
+    const supabaseErr = { message: 'TypeError: Failed to fetch', details: 'TypeError: Failed to fetch\n  at window.fetch', hint: '', code: '' };
+    expect(supabaseErr instanceof Error).toBe(false);
+    expect(isNetworkError(supabaseErr)).toBe(true);
+  });
+
+  it('is false for a genuine server error while online (so loadData can resync)', () => {
+    online = true;
+    expect(isNetworkError(new Error('null value in column "date" violates not-null constraint'))).toBe(false);
+    expect(isNetworkError({ message: 'duplicate key value violates unique constraint' })).toBe(false);
   });
 });
