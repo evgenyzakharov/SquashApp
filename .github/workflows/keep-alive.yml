@@ -2,7 +2,9 @@ name: Keep Supabase alive
 
 on:
   schedule:
-    - cron: '0 10 */5 * *' # каждые 5 дней в 10:00 UTC
+    # Каждый день в 10:00 UTC. Supabase считает активность БД за прошедшую неделю
+    # и требует "несколько запросов к БД каждый день" — раз в 5 дней было слишком редко.
+    - cron: '0 10 * * *'
   workflow_dispatch: # можно запустить вручную из GitHub Actions
 
 jobs:
@@ -11,9 +13,13 @@ jobs:
     steps:
       - name: Ping Supabase
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "apikey: ${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
-            "${{ secrets.VITE_SUPABASE_URL }}/rest/v1/players?select=id&limit=1")
-          echo "HTTP status: $STATUS"
-          [ "$STATUS" = "200" ] || exit 1
+          # Несколько запросов за прогон — чтобы уверенно превысить порог "слишком мало запросов".
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "apikey: ${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
+              -H "Authorization: Bearer ${{ secrets.VITE_SUPABASE_ANON_KEY }}" \
+              "${{ secrets.VITE_SUPABASE_URL }}/rest/v1/players?select=id&limit=1")
+            echo "Ping $i — HTTP status: $STATUS"
+            [ "$STATUS" = "200" ] || exit 1
+            sleep 2
+          done
