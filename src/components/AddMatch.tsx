@@ -1,9 +1,29 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import type { Player, Match, RatingSnapshot } from '../core/types';
 import { calculateNewRatings } from '../core/elo';
 import { DEFAULT_INITIAL_RATING } from '../core/types';
 import { addMatch, addRatingSnapshot } from '../db/api';
 import { addToQueue, isNetworkError } from '../core/offlineQueue';
+
+// ─── Player avatar ───────────────────────────────────────
+
+function PlayerAvatar({ player, size }: { player: Player; size: number }) {
+  if (player.photoUrl) {
+    return (
+      <img src={player.photoUrl} alt={player.name}
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+    );
+  }
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', background: '#dbeafe',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontWeight: 700, fontSize: Math.round(size * 0.42), flexShrink: 0, color: '#1d4ed8',
+    }}>
+      {player.name[0].toUpperCase()}
+    </div>
+  );
+}
 
 // ─── Player select with mini card ────────────────────────
 
@@ -39,13 +59,7 @@ function PlayerSelectCard({ label, players, value, exclude, currentRatings, onCh
         }}>
           {selected ? (
             <>
-              {selected.photoUrl
-                ? <img src={selected.photoUrl} alt={selected.name}
-                    style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                : <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15, flexShrink: 0, color: '#1d4ed8' }}>
-                    {selected.name[0].toUpperCase()}
-                  </div>
-              }
+              <PlayerAvatar player={selected} size={36} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {selected.name}
@@ -87,14 +101,148 @@ function PlayerSelectCard({ label, players, value, exclude, currentRatings, onCh
   );
 }
 
-interface ParsedMatch {
-  player1Name: string;
-  player2Name: string;
+// ─── Compact player picker (one line inside a bulk row) ──
+
+interface RowPlayerPickerProps {
+  players: Player[];
+  value: string;
+  exclude: string;
+  currentRatings: Record<string, number>;
+  onChange: (id: string) => void;
+}
+
+function RowPlayerPicker({ players, value, exclude, currentRatings, onChange }: RowPlayerPickerProps) {
+  const selected = players.find((p) => p.id === value);
+  const available = players.filter((p) => p.id !== exclude);
+
+  return (
+    <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+      <div style={{
+        border: `1.5px solid ${selected ? '#3b82f6' : '#ddd'}`,
+        borderRadius: 10,
+        padding: '4px 8px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        background: selected ? '#f0f6ff' : '#fff',
+        minHeight: 44,
+        overflow: 'hidden',
+        pointerEvents: 'none',
+      }}>
+        {selected ? (
+          <>
+            <PlayerAvatar player={selected} size={30} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {selected.name}
+              </div>
+              <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 600, lineHeight: 1.2 }}>
+                Elo {currentRatings[selected.id] ?? DEFAULT_INITIAL_RATING}
+              </div>
+            </div>
+          </>
+        ) : (
+          <span style={{ color: '#aaa', fontSize: 13 }}>Выберите игрока...</span>
+        )}
+        <span style={{ color: '#aaa', fontSize: 11, flexShrink: 0 }}>▼</span>
+      </div>
+
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label="Игрок"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          opacity: 0,
+          cursor: 'pointer',
+          fontSize: 16, // prevents iOS zoom on focus
+        }}
+      >
+        <option value="">Выберите игрока...</option>
+        {available.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name} ({currentRatings[p.id] ?? DEFAULT_INITIAL_RATING})
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+// ─── Score stepper ───────────────────────────────────────
+
+const MAX_SCORE = 99;
+
+function clampScore(n: number): number {
+  return Math.min(MAX_SCORE, Math.max(0, n));
+}
+
+interface ScoreStepperProps {
+  value: number;
+  win: boolean;
+  onSet: (v: number) => void;
+  onStep: (delta: number) => void; // stepping goes through a functional update, so rapid taps never drop
+}
+
+function ScoreStepper({ value, win, onSet, onStep }: ScoreStepperProps) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+      <button type="button" className="score-step" aria-label="Минус"
+        onClick={() => onStep(-1)}>−</button>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={0}
+        max={MAX_SCORE}
+        className={`score-value${win ? ' win' : ''}`}
+        aria-label="Счёт"
+        value={value}
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => {
+          const n = parseInt(e.target.value, 10);
+          onSet(isNaN(n) ? 0 : clampScore(n));
+        }}
+      />
+      <button type="button" className="score-step" aria-label="Плюс"
+        onClick={() => onStep(1)}>+</button>
+    </div>
+  );
+}
+
+// ─── Bulk rows ───────────────────────────────────────────
+
+interface BulkRow {
+  key: number;
   player1Id: string;
   player2Id: string;
   score1: number;
   score2: number;
-  error?: string;
+}
+
+function emptyRow(key: number): BulkRow {
+  return { key, player1Id: '', player2Id: '', score1: 0, score2: 0 };
+}
+
+function isUntouched(r: BulkRow): boolean {
+  return !r.player1Id && !r.player2Id && r.score1 === 0 && r.score2 === 0;
+}
+
+function rowError(r: BulkRow): string | null {
+  if (!r.player1Id || !r.player2Id) return 'Выберите обоих игроков';
+  if (r.player1Id === r.player2Id) return 'Игроки совпадают';
+  if (r.score1 === 0 && r.score2 === 0) return 'Укажите счёт';
+  return null;
+}
+
+function matchesWord(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'матч';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'матча';
+  return 'матчей';
 }
 
 interface Props {
@@ -115,8 +263,9 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [bulkMode, setBulkMode] = useState(false);
-  const [bulkText, setBulkText] = useState('');
+  const [bulkRows, setBulkRows] = useState<BulkRow[]>([emptyRow(1)]);
   const [bulkResults, setBulkResults] = useState<string[]>([]);
+  const nextRowKey = useRef(2);
 
   const currentRatings = useMemo(() => {
     const ratings: Record<string, number> = {};
@@ -132,72 +281,35 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
     return ratings;
   }, [players, snapshots]);
 
-  const findPlayer = useCallback((name: string): Player | undefined => {
-    const lower = name.toLowerCase().trim();
-    return players.find((p) => p.name.toLowerCase() === lower);
-  }, [players]);
-
-  function parseBulkText(text: string): ParsedMatch[] {
-    return text
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0)
-      .map((line) => {
-        // Formats: "Маша Вова 8:11", "Маша - Вова 8:11", "Маша-Вова 8:11"
-        const scoreMatch = line.match(/(\d+)\s*[:\-]\s*(\d+)\s*$/);
-        if (!scoreMatch) {
-          return { player1Name: '', player2Name: '', player1Id: '', player2Id: '', score1: 0, score2: 0, error: `"${line}" — не найден счёт` };
-        }
-
-        const s1 = parseInt(scoreMatch[1]);
-        const s2 = parseInt(scoreMatch[2]);
-        const namePart = line.slice(0, scoreMatch.index).trim();
-
-        // Split names: "Маша Вова", "Маша - Вова", "Маша-Вова"
-        const nameSplit = namePart.split(/\s*[-–—]\s*|\s+/);
-        if (nameSplit.length < 2) {
-          return { player1Name: namePart, player2Name: '', player1Id: '', player2Id: '', score1: s1, score2: s2, error: `"${line}" — не удалось разделить имена` };
-        }
-
-        // Try all possible splits (in case names have spaces)
-        let p1: Player | undefined;
-        let p2: Player | undefined;
-        let p1Name = '';
-        let p2Name = '';
-
-        for (let i = 1; i < nameSplit.length; i++) {
-          const try1 = nameSplit.slice(0, i).join(' ');
-          const try2 = nameSplit.slice(i).join(' ');
-          const found1 = findPlayer(try1);
-          const found2 = findPlayer(try2);
-          if (found1 && found2) {
-            p1 = found1;
-            p2 = found2;
-            p1Name = try1;
-            p2Name = try2;
-            break;
-          }
-        }
-
-        if (!p1 || !p2) {
-          return { player1Name: nameSplit[0], player2Name: nameSplit.slice(1).join(' '), player1Id: '', player2Id: '', score1: s1, score2: s2, error: `"${line}" — игрок не найден` };
-        }
-
-        if (p1.id === p2.id) {
-          return { player1Name: p1Name, player2Name: p2Name, player1Id: p1.id, player2Id: p2.id, score1: s1, score2: s2, error: `"${line}" — один и тот же игрок` };
-        }
-
-        return { player1Name: p1Name, player2Name: p2Name, player1Id: p1.id, player2Id: p2.id, score1: s1, score2: s2 };
-      });
+  function updateRow(key: number, patch: Partial<BulkRow>) {
+    setBulkRows((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }
 
-  const parsedBulk = useMemo(() => {
-    if (!bulkText.trim()) return [];
-    return parseBulkText(bulkText);
-  }, [bulkText, players]);
+  function stepScore(key: number, field: 'score1' | 'score2', delta: number) {
+    setBulkRows((rows) => rows.map((r) => (
+      r.key === key ? { ...r, [field]: clampScore(r[field] + delta) } : r
+    )));
+  }
 
-  const bulkHasErrors = parsedBulk.some((m) => m.error);
-  const canSubmitBulk = parsedBulk.length > 0 && !bulkHasErrors && !saving;
+  function addRow() {
+    setBulkRows((rows) => [...rows, emptyRow(nextRowKey.current++)]);
+  }
+
+  function removeRow(key: number) {
+    setBulkRows((rows) => {
+      const left = rows.filter((r) => r.key !== key);
+      return left.length > 0 ? left : [emptyRow(nextRowKey.current++)];
+    });
+  }
+
+  // Rows the user actually started filling in — untouched ones are ignored
+  const filledRows = useMemo(() => bulkRows.filter((r) => !isUntouched(r)), [bulkRows]);
+  const bulkHasErrors = filledRows.some((r) => rowError(r) !== null);
+  const canSubmitBulk = filledRows.length > 0 && !bulkHasErrors && !saving;
+
+  function playerName(id: string): string {
+    return players.find((p) => p.id === id)?.name ?? id;
+  }
 
   async function handleBulkSubmit() {
     if (!canSubmitBulk) return;
@@ -205,12 +317,12 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
     setSaving(true);
     setBulkResults([]);
 
-    const rawMatches = parsedBulk.map((pm) => ({
+    const rawMatches = filledRows.map((r) => ({
       date,
-      player1Id: pm.player1Id,
-      player2Id: pm.player2Id,
-      score1: pm.score1,
-      score2: pm.score2,
+      player1Id: r.player1Id,
+      player2Id: r.player2Id,
+      score1: r.score1,
+      score2: r.score2,
     }));
 
     try {
@@ -223,28 +335,28 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
         const ratings = { ...currentRatings };
         let maxOrder = matches.reduce((max, m) => Math.max(max, m.orderNumber ?? 0), 0);
         let matchCount = matches.length;
-        for (const pm of parsedBulk) {
-          const rA = ratings[pm.player1Id] ?? DEFAULT_INITIAL_RATING;
-          const rB = ratings[pm.player2Id] ?? DEFAULT_INITIAL_RATING;
-          const elo = calculateNewRatings(rA, rB, pm.score1, pm.score2);
+        for (const rm of rawMatches) {
+          const rA = ratings[rm.player1Id] ?? DEFAULT_INITIAL_RATING;
+          const rB = ratings[rm.player2Id] ?? DEFAULT_INITIAL_RATING;
+          const elo = calculateNewRatings(rA, rB, rm.score1, rm.score2);
           maxOrder++; matchCount++;
           const matchId = `${date}-${String(matchCount).padStart(3, '0')}`;
-          await addMatch({ id: matchId, orderNumber: maxOrder, date, player1Id: pm.player1Id, player2Id: pm.player2Id, score1: pm.score1, score2: pm.score2, eloBeforeP1: rA, eloBeforeP2: rB, eloAfterP1: elo.newRatingA, eloAfterP2: elo.newRatingB });
-          ratings[pm.player1Id] = elo.newRatingA; ratings[pm.player2Id] = elo.newRatingB;
+          await addMatch({ id: matchId, orderNumber: maxOrder, date, player1Id: rm.player1Id, player2Id: rm.player2Id, score1: rm.score1, score2: rm.score2, eloBeforeP1: rA, eloBeforeP2: rB, eloAfterP1: elo.newRatingA, eloAfterP2: elo.newRatingB });
+          ratings[rm.player1Id] = elo.newRatingA; ratings[rm.player2Id] = elo.newRatingB;
           await addRatingSnapshot({ date, matchId, ratings: { ...ratings } });
-          results.push(`${pm.player1Name} ${pm.score1}:${pm.score2} ${pm.player2Name} | Elo: ${rA}→${elo.newRatingA}, ${rB}→${elo.newRatingB}`);
+          results.push(`${playerName(rm.player1Id)} ${rm.score1}:${rm.score2} ${playerName(rm.player2Id)} | Elo: ${rA}→${elo.newRatingA}, ${rB}→${elo.newRatingB}`);
         }
         setBulkResults(results);
         onMatchAdded();
       }
-      setBulkText('');
+      setBulkRows([emptyRow(nextRowKey.current++)]);
     } catch (err) {
       if (isNetworkError(err)) {
         for (const rm of rawMatches) {
           addToQueue(rm);
         }
-        setBulkResults([`${rawMatches.length} матчей сохранено офлайн (будет синхронизировано)`]);
-        setBulkText('');
+        setBulkResults([`${rawMatches.length} ${matchesWord(rawMatches.length)} сохранено офлайн (будет синхронизировано)`]);
+        setBulkRows([emptyRow(nextRowKey.current++)]);
         onOfflineChange?.();
       } else {
         const msg = err instanceof Error
@@ -316,10 +428,6 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
     }
   }
 
-  function playerName(id: string): string {
-    return players.find((p) => p.id === id)?.name ?? id;
-  }
-
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -339,39 +447,79 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
             <label>Дата</label>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
-          <div className="form-group">
-            <label>Вставьте результаты (по одному на строку)</label>
-            <textarea
-              value={bulkText}
-              onChange={(e) => setBulkText(e.target.value)}
-              placeholder={"Маша Вова 8:11\nНикита Вова 12:10\nВлад - Женя 11:7"}
-              rows={6}
-              style={{ width: '100%', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 6, fontSize: 14, fontFamily: 'inherit', resize: 'vertical' }}
-            />
-          </div>
 
-          {parsedBulk.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <strong>Предпросмотр ({parsedBulk.length} матчей):</strong>
-              <div style={{ marginTop: 8, fontSize: 14 }}>
-                {parsedBulk.map((pm, i) => (
-                  <div key={i} style={{ padding: '4px 0', color: pm.error ? '#dc2626' : '#333' }}>
-                    {pm.error
-                      ? pm.error
-                      : `${pm.player1Name} ${pm.score1}:${pm.score2} ${pm.player2Name}`}
-                  </div>
-                ))}
+          {bulkRows.map((row, i) => {
+            const err = isUntouched(row) ? null : rowError(row);
+            return (
+              <div key={row.key} className="bulk-row">
+                <div className="bulk-row-head">
+                  <span>Матч {i + 1}</span>
+                  <button
+                    type="button"
+                    className="btn-delete-match"
+                    aria-label="Удалить матч"
+                    onClick={() => removeRow(row.key)}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="bulk-side">
+                  <RowPlayerPicker
+                    players={players}
+                    value={row.player1Id}
+                    exclude={row.player2Id}
+                    currentRatings={currentRatings}
+                    onChange={(id) => updateRow(row.key, { player1Id: id })}
+                  />
+                  <ScoreStepper
+                    value={row.score1}
+                    win={row.score1 > row.score2}
+                    onSet={(v) => updateRow(row.key, { score1: v })}
+                    onStep={(d) => stepScore(row.key, 'score1', d)}
+                  />
+                </div>
+
+                <div className="bulk-side">
+                  <RowPlayerPicker
+                    players={players}
+                    value={row.player2Id}
+                    exclude={row.player1Id}
+                    currentRatings={currentRatings}
+                    onChange={(id) => updateRow(row.key, { player2Id: id })}
+                  />
+                  <ScoreStepper
+                    value={row.score2}
+                    win={row.score2 > row.score1}
+                    onSet={(v) => updateRow(row.key, { score2: v })}
+                    onStep={(d) => stepScore(row.key, 'score2', d)}
+                  />
+                </div>
+
+                {err && <div className="bulk-row-error">{err}</div>}
               </div>
-            </div>
-          )}
+            );
+          })}
 
           <button
-            className="btn btn-primary"
-            disabled={!canSubmitBulk}
-            onClick={handleBulkSubmit}
+            type="button"
+            className="btn btn-sm btn-add-row"
+            onClick={addRow}
           >
-            {saving ? 'Сохранение...' : `Сохранить ${parsedBulk.length} матчей`}
+            + Ещё матч
           </button>
+
+          <div>
+            <button
+              className="btn btn-primary"
+              disabled={!canSubmitBulk}
+              onClick={handleBulkSubmit}
+            >
+              {saving
+                ? 'Сохранение...'
+                : `Сохранить ${filledRows.length} ${matchesWord(filledRows.length)}`}
+            </button>
+          </div>
 
           {bulkResults.length > 0 && (
             <div style={{ marginTop: 16, padding: 12, background: '#f0fdf4', borderRadius: 6, fontSize: 14 }}>

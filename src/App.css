@@ -564,3 +564,97 @@ tr:hover {
     font-size: 12px;
   }
 }
+
+/* --- Bulk match entry (rows) --- */
+.bulk-row {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #fff;
+}
+
+.bulk-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.bulk-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bulk-side + .bulk-side {
+  margin-top: 8px;
+}
+
+.bulk-row-error {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #dc2626;
+}
+
+.score-step {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.score-step:hover {
+  background: #eef2ff;
+}
+
+.score-step:active {
+  background: #e0e7ff;
+}
+
+.score-value {
+  width: 52px;
+  height: 36px;
+  padding: 0;
+  text-align: center;
+  font-size: 17px; /* >=16px prevents iOS zoom on focus */
+  font-weight: 700;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.score-value::-webkit-outer-spin-button,
+.score-value::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.score-value.win {
+  border-color: #16a34a;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.btn-add-row {
+  margin-bottom: 16px;
+  border: 1px dashed #93c5fd;
+  background: #f8fbff;
+  color: #2563eb;
+}
+
+.btn-add-row:hover {
+  background: #eff6ff;
+}
