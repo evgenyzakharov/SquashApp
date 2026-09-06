@@ -175,6 +175,8 @@ function RowPlayerPicker({ players, value, exclude, currentRatings, onChange }: 
 // ─── Score stepper ───────────────────────────────────────
 
 const MAX_SCORE = 99;
+// Games are played to 11, so the steppers start there and get wound to the real score
+const DEFAULT_SCORE = 11;
 
 function clampScore(n: number): number {
   return Math.min(MAX_SCORE, Math.max(0, n));
@@ -227,17 +229,17 @@ interface BulkRow {
 }
 
 function emptyRow(key: number): BulkRow {
-  return { key, player1Id: '', player2Id: '', score1: 0, score2: 0 };
+  return { key, player1Id: '', player2Id: '', score1: DEFAULT_SCORE, score2: DEFAULT_SCORE };
 }
 
 function isUntouched(r: BulkRow): boolean {
-  return !r.player1Id && !r.player2Id && r.score1 === 0 && r.score2 === 0;
+  return !r.player1Id && !r.player2Id && r.score1 === DEFAULT_SCORE && r.score2 === DEFAULT_SCORE;
 }
 
 function rowError(r: BulkRow): string | null {
   if (!r.player1Id || !r.player2Id) return 'Выберите обоих игроков';
   if (r.player1Id === r.player2Id) return 'Игроки совпадают';
-  if (r.score1 === 0 && r.score2 === 0) return 'Укажите счёт';
+  if (r.score1 === r.score2) return 'Счёт не может быть равным';
   return null;
 }
 
@@ -273,8 +275,8 @@ interface Props {
 export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineChange, onAddMatches }: Props) {
   const [player1, setPlayer1] = useState('');
   const [player2, setPlayer2] = useState('');
-  const [score1, setScore1] = useState(0);
-  const [score2, setScore2] = useState(0);
+  const [score1, setScore1] = useState(DEFAULT_SCORE);
+  const [score2, setScore2] = useState(DEFAULT_SCORE);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -462,7 +464,7 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
   }
 
   const canSubmit =
-    player1 && player2 && player1 !== player2 && (score1 > 0 || score2 > 0) && !saving;
+    player1 && player2 && player1 !== player2 && score1 !== score2 && !saving;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -494,14 +496,14 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
         setMessage(`Матч сохранён! Elo: ${rA}→${elo.newRatingA}, ${rB}→${elo.newRatingB}`);
         onMatchAdded();
       }
-      setScore1(0);
-      setScore2(0);
+      setScore1(DEFAULT_SCORE);
+      setScore2(DEFAULT_SCORE);
     } catch (err) {
       if (isNetworkError(err)) {
         addToQueue({ date, player1Id: player1, player2Id: player2, score1: s1, score2: s2 });
         setMessage('Сохранено офлайн (будет синхронизировано при подключении)');
-        setScore1(0);
-        setScore2(0);
+        setScore1(DEFAULT_SCORE);
+        setScore2(DEFAULT_SCORE);
         onOfflineChange?.();
       } else {
         const msg = err instanceof Error
@@ -715,7 +717,7 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
           </div>
         </div>
 
-        {player1 && player2 && (score1 > 0 || score2 > 0) && (
+        {player1 && player2 && score1 !== score2 && (
           <div style={{ padding: '12px', background: '#f0f9ff', borderRadius: 6, marginBottom: 16, fontSize: 14 }}>
             {(() => {
               const s1 = score1;
