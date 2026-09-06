@@ -658,3 +658,40 @@ tr:hover {
 .btn-add-row:hover {
   background: #eff6ff;
 }
+
+/* --- Score stepper sizes / input mode switch --- */
+.score-stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.score-stepper-lg {
+  gap: 6px;
+}
+
+.score-step-lg {
+  width: 44px;
+  height: 44px;
+  font-size: 20px;
+}
+
+.score-value-lg {
+  width: 100%;
+  min-width: 56px;
+  height: 44px;
+  font-size: 20px;
+}
+
+.input-mode-switch {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.input-mode-switch .btn:not(.btn-primary) {
+  border: 1px solid #ddd;
+  background: #fff;
+  color: #374151;
+}

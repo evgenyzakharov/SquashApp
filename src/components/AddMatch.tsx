@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import type { Player, Match, RatingSnapshot } from '../core/types';
 import { calculateNewRatings } from '../core/elo';
 import { DEFAULT_INITIAL_RATING } from '../core/types';
@@ -183,21 +183,25 @@ function clampScore(n: number): number {
 interface ScoreStepperProps {
   value: number;
   win: boolean;
+  large?: boolean;
   onSet: (v: number) => void;
   onStep: (delta: number) => void; // stepping goes through a functional update, so rapid taps never drop
 }
 
-function ScoreStepper({ value, win, onSet, onStep }: ScoreStepperProps) {
+function ScoreStepper({ value, win, large, onSet, onStep }: ScoreStepperProps) {
+  const stepClass = `score-step${large ? ' score-step-lg' : ''}`;
+  const valueClass = `score-value${large ? ' score-value-lg' : ''}${win ? ' win' : ''}`;
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-      <button type="button" className="score-step" aria-label="Минус"
+    <div className={`score-stepper${large ? ' score-stepper-lg' : ''}`}>
+      <button type="button" className={stepClass} aria-label="Минус"
         onClick={() => onStep(-1)}>−</button>
       <input
         type="number"
         inputMode="numeric"
         min={0}
         max={MAX_SCORE}
-        className={`score-value${win ? ' win' : ''}`}
+        className={valueClass}
         aria-label="Счёт"
         value={value}
         onFocus={(e) => e.target.select()}
@@ -206,7 +210,7 @@ function ScoreStepper({ value, win, onSet, onStep }: ScoreStepperProps) {
           onSet(isNaN(n) ? 0 : clampScore(n));
         }}
       />
-      <button type="button" className="score-step" aria-label="Плюс"
+      <button type="button" className={stepClass} aria-label="Плюс"
         onClick={() => onStep(1)}>+</button>
     </div>
   );
@@ -237,6 +241,18 @@ function rowError(r: BulkRow): string | null {
   return null;
 }
 
+// ─── Text fallback (paste results as lines) ──────────────
+
+interface ParsedMatch {
+  player1Name: string;
+  player2Name: string;
+  player1Id: string;
+  player2Id: string;
+  score1: number;
+  score2: number;
+  error?: string;
+}
+
 function matchesWord(n: number): string {
   const mod10 = n % 10;
   const mod100 = n % 100;
@@ -257,13 +273,15 @@ interface Props {
 export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineChange, onAddMatches }: Props) {
   const [player1, setPlayer1] = useState('');
   const [player2, setPlayer2] = useState('');
-  const [score1, setScore1] = useState('');
-  const [score2, setScore2] = useState('');
+  const [score1, setScore1] = useState(0);
+  const [score2, setScore2] = useState(0);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [bulkMode, setBulkMode] = useState(false);
+  const [bulkInput, setBulkInput] = useState<'rows' | 'text'>('rows');
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([emptyRow(1)]);
+  const [bulkText, setBulkText] = useState('');
   const [bulkResults, setBulkResults] = useState<string[]>([]);
   const nextRowKey = useRef(2);
 
@@ -285,6 +303,70 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
     setBulkRows((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }
 
+  const findPlayer = useCallback((name: string): Player | undefined => {
+    const lower = name.toLowerCase().trim();
+    return players.find((p) => p.name.toLowerCase() === lower);
+  }, [players]);
+
+  const parseBulkText = useCallback((text: string): ParsedMatch[] => {
+    return text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+      .map((line) => {
+        // Formats: "Маша Вова 8:11", "Маша - Вова 8:11", "Маша-Вова 8:11"
+        const scoreMatch = line.match(/(\d+)\s*[:-]\s*(\d+)\s*$/);
+        if (!scoreMatch) {
+          return { player1Name: '', player2Name: '', player1Id: '', player2Id: '', score1: 0, score2: 0, error: `"${line}" — не найден счёт` };
+        }
+
+        const s1 = parseInt(scoreMatch[1]);
+        const s2 = parseInt(scoreMatch[2]);
+        const namePart = line.slice(0, scoreMatch.index).trim();
+
+        // Split names: "Маша Вова", "Маша - Вова", "Маша-Вова"
+        const nameSplit = namePart.split(/\s*[-–—]\s*|\s+/);
+        if (nameSplit.length < 2) {
+          return { player1Name: namePart, player2Name: '', player1Id: '', player2Id: '', score1: s1, score2: s2, error: `"${line}" — не удалось разделить имена` };
+        }
+
+        // Try all possible splits (in case names have spaces)
+        let p1: Player | undefined;
+        let p2: Player | undefined;
+        let p1Name = '';
+        let p2Name = '';
+
+        for (let i = 1; i < nameSplit.length; i++) {
+          const try1 = nameSplit.slice(0, i).join(' ');
+          const try2 = nameSplit.slice(i).join(' ');
+          const found1 = findPlayer(try1);
+          const found2 = findPlayer(try2);
+          if (found1 && found2) {
+            p1 = found1;
+            p2 = found2;
+            p1Name = try1;
+            p2Name = try2;
+            break;
+          }
+        }
+
+        if (!p1 || !p2) {
+          return { player1Name: nameSplit[0], player2Name: nameSplit.slice(1).join(' '), player1Id: '', player2Id: '', score1: s1, score2: s2, error: `"${line}" — игрок не найден` };
+        }
+
+        if (p1.id === p2.id) {
+          return { player1Name: p1Name, player2Name: p2Name, player1Id: p1.id, player2Id: p2.id, score1: s1, score2: s2, error: `"${line}" — один и тот же игрок` };
+        }
+
+        return { player1Name: p1Name, player2Name: p2Name, player1Id: p1.id, player2Id: p2.id, score1: s1, score2: s2 };
+      });
+  }, [findPlayer]);
+
+  const parsedBulk = useMemo(() => {
+    if (!bulkText.trim()) return [];
+    return parseBulkText(bulkText);
+  }, [bulkText, parseBulkText]);
+
   function stepScore(key: number, field: 'score1' | 'score2', delta: number) {
     setBulkRows((rows) => rows.map((r) => (
       r.key === key ? { ...r, [field]: clampScore(r[field] + delta) } : r
@@ -304,11 +386,19 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
 
   // Rows the user actually started filling in — untouched ones are ignored
   const filledRows = useMemo(() => bulkRows.filter((r) => !isUntouched(r)), [bulkRows]);
-  const bulkHasErrors = filledRows.some((r) => rowError(r) !== null);
-  const canSubmitBulk = filledRows.length > 0 && !bulkHasErrors && !saving;
+  const bulkHasErrors = bulkInput === 'text'
+    ? parsedBulk.some((m) => m.error)
+    : filledRows.some((r) => rowError(r) !== null);
+  const bulkCount = bulkInput === 'text' ? parsedBulk.length : filledRows.length;
+  const canSubmitBulk = bulkCount > 0 && !bulkHasErrors && !saving;
 
   function playerName(id: string): string {
     return players.find((p) => p.id === id)?.name ?? id;
+  }
+
+  function resetBulkInput() {
+    setBulkRows([emptyRow(nextRowKey.current++)]);
+    setBulkText('');
   }
 
   async function handleBulkSubmit() {
@@ -317,7 +407,8 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
     setSaving(true);
     setBulkResults([]);
 
-    const rawMatches = filledRows.map((r) => ({
+    const source = bulkInput === 'text' ? parsedBulk : filledRows;
+    const rawMatches = source.map((r) => ({
       date,
       player1Id: r.player1Id,
       player2Id: r.player2Id,
@@ -349,14 +440,14 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
         setBulkResults(results);
         onMatchAdded();
       }
-      setBulkRows([emptyRow(nextRowKey.current++)]);
+      resetBulkInput();
     } catch (err) {
       if (isNetworkError(err)) {
         for (const rm of rawMatches) {
           addToQueue(rm);
         }
         setBulkResults([`${rawMatches.length} ${matchesWord(rawMatches.length)} сохранено офлайн (будет синхронизировано)`]);
-        setBulkRows([emptyRow(nextRowKey.current++)]);
+        resetBulkInput();
         onOfflineChange?.();
       } else {
         const msg = err instanceof Error
@@ -371,18 +462,14 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
   }
 
   const canSubmit =
-    player1 && player2 && player1 !== player2 && score1 && score2 && !saving;
+    player1 && player2 && player1 !== player2 && (score1 > 0 || score2 > 0) && !saving;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
 
-    const s1 = parseInt(score1);
-    const s2 = parseInt(score2);
-    if (isNaN(s1) || isNaN(s2) || s1 < 0 || s2 < 0) {
-      setMessage('Некорректный счёт');
-      return;
-    }
+    const s1 = score1;
+    const s2 = score2;
 
     try {
       setSaving(true);
@@ -407,14 +494,14 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
         setMessage(`Матч сохранён! Elo: ${rA}→${elo.newRatingA}, ${rB}→${elo.newRatingB}`);
         onMatchAdded();
       }
-      setScore1('');
-      setScore2('');
+      setScore1(0);
+      setScore2(0);
     } catch (err) {
       if (isNetworkError(err)) {
         addToQueue({ date, player1Id: player1, player2Id: player2, score1: s1, score2: s2 });
         setMessage('Сохранено офлайн (будет синхронизировано при подключении)');
-        setScore1('');
-        setScore2('');
+        setScore1(0);
+        setScore2(0);
         onOfflineChange?.();
       } else {
         const msg = err instanceof Error
@@ -448,6 +535,53 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
 
+          <div className="input-mode-switch">
+            <button
+              type="button"
+              className={`btn btn-sm${bulkInput === 'rows' ? ' btn-primary' : ''}`}
+              onClick={() => { setBulkInput('rows'); setBulkResults([]); }}
+            >
+              Списком
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm${bulkInput === 'text' ? ' btn-primary' : ''}`}
+              onClick={() => { setBulkInput('text'); setBulkResults([]); }}
+            >
+              Текстом
+            </button>
+          </div>
+
+          {bulkInput === 'text' ? (
+            <>
+              <div className="form-group">
+                <label>Вставьте результаты (по одному на строку)</label>
+                <textarea
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  placeholder={"Маша Вова 8:11\nНикита Вова 12:10\nВлад - Женя 11:7"}
+                  rows={6}
+                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 6, fontSize: 16, fontFamily: 'inherit', resize: 'vertical' }}
+                />
+              </div>
+
+              {parsedBulk.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  <strong>Предпросмотр ({parsedBulk.length} {matchesWord(parsedBulk.length)}):</strong>
+                  <div style={{ marginTop: 8, fontSize: 14 }}>
+                    {parsedBulk.map((pm, i) => (
+                      <div key={i} style={{ padding: '4px 0', color: pm.error ? '#dc2626' : '#333' }}>
+                        {pm.error
+                          ? pm.error
+                          : `${pm.player1Name} ${pm.score1}:${pm.score2} ${pm.player2Name}`}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+          <>
           {bulkRows.map((row, i) => {
             const err = isUntouched(row) ? null : rowError(row);
             return (
@@ -508,6 +642,8 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
           >
             + Ещё матч
           </button>
+          </>
+          )}
 
           <div>
             <button
@@ -517,7 +653,7 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
             >
               {saving
                 ? 'Сохранение...'
-                : `Сохранить ${filledRows.length} ${matchesWord(filledRows.length)}`}
+                : `Сохранить ${bulkCount} ${matchesWord(bulkCount)}`}
             </button>
           </div>
 
@@ -559,32 +695,31 @@ export function AddMatch({ players, matches, snapshots, onMatchAdded, onOfflineC
         <div className="form-row">
           <div className="form-group">
             <label>Счёт игрока 1</label>
-            <input
-              type="number"
-              min="0"
+            <ScoreStepper
               value={score1}
-              onChange={(e) => setScore1(e.target.value)}
-              placeholder="0"
+              win={score1 > score2}
+              large
+              onSet={setScore1}
+              onStep={(d) => setScore1((s) => clampScore(s + d))}
             />
           </div>
           <div className="form-group">
             <label>Счёт игрока 2</label>
-            <input
-              type="number"
-              min="0"
+            <ScoreStepper
               value={score2}
-              onChange={(e) => setScore2(e.target.value)}
-              placeholder="0"
+              win={score2 > score1}
+              large
+              onSet={setScore2}
+              onStep={(d) => setScore2((s) => clampScore(s + d))}
             />
           </div>
         </div>
 
-        {player1 && player2 && score1 && score2 && (
+        {player1 && player2 && (score1 > 0 || score2 > 0) && (
           <div style={{ padding: '12px', background: '#f0f9ff', borderRadius: 6, marginBottom: 16, fontSize: 14 }}>
             {(() => {
-              const s1 = parseInt(score1);
-              const s2 = parseInt(score2);
-              if (isNaN(s1) || isNaN(s2)) return null;
+              const s1 = score1;
+              const s2 = score2;
               const rA = currentRatings[player1] ?? DEFAULT_INITIAL_RATING;
               const rB = currentRatings[player2] ?? DEFAULT_INITIAL_RATING;
               const elo = calculateNewRatings(rA, rB, s1, s2);
